@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: pdsa-backend
+  datasource:
+    url: jdbc:sqlite:../database/pdsa_game_system.db
+    driver-class-name: org.sqlite.JDBC
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/migration/V1__init_sqlite_schema.sql
+server:
+  port: 8080
