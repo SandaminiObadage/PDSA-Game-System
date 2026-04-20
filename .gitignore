@@ -1,10 +1,16 @@
-﻿# Node
+﻿# Node / Frontend
 node_modules/
 dist/
+frontend/node_modules/
+frontend/dist/
 
-# Java
+# Java / Backend
 *.class
 target/
+backend/target/
+
+# SQLite database
+database/pdsa_game_system.db
 
 # IDE / OS
 .vscode/
