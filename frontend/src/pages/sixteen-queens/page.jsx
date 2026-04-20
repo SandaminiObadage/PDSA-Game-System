@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  closeSixteenQueensRound,
   fetchSixteenQueensHistory,
   fetchSixteenQueensLeaderboard,
   fetchSixteenQueensReport,
+  fetchSixteenQueensSamples,
   resetSixteenQueensRecognized,
   solveSixteenQueens,
   submitSixteenQueens
 } from '../../api/sixteenQueensApi';
 
 const BOARD_SIZE = 16;
+const SAMPLE_LIMIT = 8;
 
 const defaultSolveForm = {
   threadCount: 4,
@@ -44,6 +47,7 @@ const computeLocalConflicts = (queenColumns) => {
 
 function SixteenQueensPage() {
   const navigate = useNavigate();
+  const [viewerRole, setViewerRole] = useState('PLAYER');
   const [solveForm, setSolveForm] = useState(defaultSolveForm);
   const [submitForm, setSubmitForm] = useState(defaultSubmitForm);
   const [queenColumns, setQueenColumns] = useState(emptyBoard);
@@ -52,6 +56,7 @@ function SixteenQueensPage() {
   const [historyResult, setHistoryResult] = useState(null);
   const [leaderboardResult, setLeaderboardResult] = useState(null);
   const [reportResult, setReportResult] = useState(null);
+  const [isRoundClosed, setIsRoundClosed] = useState(false);
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,22 +86,89 @@ function SixteenQueensPage() {
     setQueenColumns(emptyBoard());
   };
 
-  const loadSampleToGrid = () => {
-    const firstSample = solveResult?.sampleSolutions?.[0];
-    if (!firstSample) {
-      setError('Run solver first to get sample solutions.');
+  const loadSampleToGrid = async () => {
+    const selectedRoundId = submitForm.gameRoundId !== ''
+      ? Number(submitForm.gameRoundId)
+      : solveResult?.gameRoundId;
+
+    if (viewerRole === 'PLAYER' && !isRoundClosed) {
+      setError('Samples are hidden for players while the round is active. Ask admin to close the round first.');
       return;
     }
 
-    const parsed = firstSample.split(',').map((value) => Number(value));
-    if (parsed.length !== BOARD_SIZE || parsed.some((value) => Number.isNaN(value) || value < 0 || value >= BOARD_SIZE)) {
-      setError('Unable to load sample solution into grid.');
-      return;
-    }
-
-    setQueenColumns(parsed);
+    setLoading(true);
     setError('');
-    setStatus('Loaded first sample solution into the grid.');
+    setStatus('Loading sample solutions...');
+
+    try {
+      let firstSample = solveResult?.sampleSolutions?.[0];
+      if (!firstSample && selectedRoundId) {
+        const data = await fetchSixteenQueensSamples(selectedRoundId, SAMPLE_LIMIT, viewerRole);
+        firstSample = data?.sampleSolutions?.[0];
+        if (data?.samplesVisible === false) {
+          setError(data?.message || 'Samples are currently hidden for players.');
+          setStatus('Sample load blocked');
+          return;
+        }
+      }
+
+      if (!firstSample) {
+        setError('Run solver first to get sample solutions.');
+        setStatus('Sample load failed');
+        return;
+      }
+
+      const parsed = firstSample.split(',').map((value) => Number(value));
+      if (parsed.length !== BOARD_SIZE || parsed.some((value) => Number.isNaN(value) || value < 0 || value >= BOARD_SIZE)) {
+        setError('Unable to load sample solution into grid.');
+        return;
+      }
+
+      setQueenColumns(parsed);
+      setError('');
+      setStatus('Loaded first sample solution into the grid.');
+    } catch (requestError) {
+      const message = requestError?.response?.data?.message || requestError.message || 'Sample load failed';
+      setError(message);
+      setStatus('Sample load failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseRound = async () => {
+    const selectedRoundId = submitForm.gameRoundId !== ''
+      ? Number(submitForm.gameRoundId)
+      : (solveResult?.gameRoundId || undefined);
+
+    if (!selectedRoundId) {
+      setError('No round selected to close. Run solve first or provide round ID.');
+      return;
+    }
+
+    if (viewerRole === 'PLAYER') {
+      setError('Only admin can close rounds.');
+      return;
+    }
+
+    if (!window.confirm(`Close round ${selectedRoundId}? Players will be able to view sample solutions after this.`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setStatus('Closing round...');
+    try {
+      const data = await closeSixteenQueensRound(selectedRoundId);
+      setIsRoundClosed(true);
+      setStatus(data?.message || `Round ${selectedRoundId} closed.`);
+    } catch (requestError) {
+      const message = requestError?.response?.data?.message || requestError.message || 'Close round failed';
+      setError(message);
+      setStatus('Close round failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSolve = async (event) => {
@@ -109,9 +181,11 @@ function SixteenQueensPage() {
         boardSize: BOARD_SIZE,
         threadCount: Number(solveForm.threadCount),
         solutionSampleLimit: Number(solveForm.solutionSampleLimit),
-        persistSolutionLimit: Number(solveForm.persistSolutionLimit)
+        persistSolutionLimit: Number(solveForm.persistSolutionLimit),
+        viewerRole
       });
       setSolveResult(data);
+      setIsRoundClosed(false);
       setSubmitForm((current) => ({
         ...current,
         gameRoundId: data.gameRoundId || current.gameRoundId
@@ -266,6 +340,16 @@ function SixteenQueensPage() {
           <p className="info-chip">Board Size: 16 x 16 (fixed)</p>
           <form onSubmit={handleSolve} className="form-grid">
             <label>
+              Viewer Role
+              <select
+                value={viewerRole}
+                onChange={(e) => setViewerRole(e.target.value)}
+              >
+                <option value="PLAYER">Player</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </label>
+            <label>
               Thread Count
               <input
                 type="number"
@@ -336,6 +420,11 @@ function SixteenQueensPage() {
             <button type="button" onClick={loadSampleToGrid} disabled={loading}>Load Sample to Grid</button>
           </div>
 
+          <p className="grid-hint">
+            Sample visibility policy: Admin can always load samples. Players can load samples only after round close.
+            Current round status: {isRoundClosed ? 'Closed' : 'Active'}.
+          </p>
+
           <div className="grid-board" role="grid" aria-label="Sixteen queens board">
             {Array.from({ length: BOARD_SIZE }).map((_, row) => (
               <div key={`row-${row}`} className="grid-row" role="row">
@@ -375,6 +464,7 @@ function SixteenQueensPage() {
         <button onClick={loadHistory} disabled={loading}>Load History</button>
         <button onClick={loadLeaderboard} disabled={loading}>Load Leaderboard</button>
         <button onClick={loadReport} disabled={loading}>Load Report</button>
+        <button onClick={handleCloseRound} disabled={loading || viewerRole === 'PLAYER'}>Close Round</button>
         <button onClick={handleResetRecognized} disabled={loading}>Reset Recognized</button>
       </section>
 

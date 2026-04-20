@@ -2,6 +2,8 @@ package com.nibm.pdsa.games.sixteenqueens.controller;
 
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.ResetRecognizedResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.RoundCloseResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.SampleSolutionsResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
@@ -33,8 +35,23 @@ public class SixteenQueensController {
                 request.getBoardSize(),
                 request.getThreadCount(),
                 request.getSolutionSampleLimit(),
-                request.getPersistSolutionLimit()
+                request.getPersistSolutionLimit(),
+                request.getViewerRole()
         );
+    }
+
+    @PostMapping("/close-round")
+    public RoundCloseResponse closeRound(@RequestParam(required = false) Long roundId) {
+        return sixteenQueensService.closeRound(roundId);
+    }
+
+    @GetMapping("/samples")
+    public SampleSolutionsResponse samples(
+            @RequestParam(required = false) Long roundId,
+            @RequestParam(defaultValue = "8") int limit,
+            @RequestParam(defaultValue = "PLAYER") String viewerRole
+    ) {
+        return sixteenQueensService.getRoundSamples(roundId, limit, viewerRole);
     }
 
     @PostMapping("/submit")
