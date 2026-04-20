@@ -7,6 +7,8 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration/V1__init_sqlite_schema.sql
+      schema-locations:
+        - classpath:db/migration/V1__init_sqlite_schema.sql
+        - classpath:db/migration/V3__add_algorithm_solution_answers.sql
 server:
   port: 8080

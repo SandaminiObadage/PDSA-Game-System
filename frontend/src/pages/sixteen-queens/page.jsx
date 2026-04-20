@@ -92,7 +92,7 @@ function SixteenQueensPage() {
       : solveResult?.gameRoundId;
 
     if (viewerRole === 'PLAYER' && !isRoundClosed) {
-      setError('Samples are hidden for players while the round is active. Ask teacher/admin to close the round first.');
+      setError('Samples are hidden for players while the round is active. Ask admin to close the round first.');
       return;
     }
 
@@ -147,7 +147,7 @@ function SixteenQueensPage() {
     }
 
     if (viewerRole === 'PLAYER') {
-      setError('Only teacher/admin can close rounds.');
+      setError('Only admin can close rounds.');
       return;
     }
 
@@ -346,7 +346,6 @@ function SixteenQueensPage() {
                 onChange={(e) => setViewerRole(e.target.value)}
               >
                 <option value="PLAYER">Player</option>
-                <option value="TEACHER">Teacher</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </label>
@@ -422,7 +421,7 @@ function SixteenQueensPage() {
           </div>
 
           <p className="grid-hint">
-            Sample visibility policy: Teacher/Admin can always load samples. Players can load samples only after round close.
+            Sample visibility policy: Admin can always load samples. Players can load samples only after round close.
             Current round status: {isRoundClosed ? 'Closed' : 'Active'}.
           </p>
 
