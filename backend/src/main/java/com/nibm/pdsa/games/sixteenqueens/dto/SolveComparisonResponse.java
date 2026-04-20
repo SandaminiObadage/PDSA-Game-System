@@ -11,6 +11,8 @@ public class SolveComparisonResponse {
     private long sequentialTimeMs;
     private long parallelTimeMs;
     private double speedup;
+    private int sequentialPersistedSolutionCount;
+    private int parallelPersistedSolutionCount;
     private int persistedSolutionCount;
     private boolean samplesVisible;
     private List<String> sampleSolutions;
@@ -69,6 +71,22 @@ public class SolveComparisonResponse {
 
     public void setSpeedup(double speedup) {
         this.speedup = speedup;
+    }
+
+    public int getSequentialPersistedSolutionCount() {
+        return sequentialPersistedSolutionCount;
+    }
+
+    public void setSequentialPersistedSolutionCount(int sequentialPersistedSolutionCount) {
+        this.sequentialPersistedSolutionCount = sequentialPersistedSolutionCount;
+    }
+
+    public int getParallelPersistedSolutionCount() {
+        return parallelPersistedSolutionCount;
+    }
+
+    public void setParallelPersistedSolutionCount(int parallelPersistedSolutionCount) {
+        this.parallelPersistedSolutionCount = parallelPersistedSolutionCount;
     }
 
     public int getPersistedSolutionCount() {
