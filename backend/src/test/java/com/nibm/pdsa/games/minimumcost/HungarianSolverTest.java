@@ -1,15 +1,15 @@
 package com.nibm.pdsa.games.minimumcost;
 
-import com.nibm.pdsa.games.minimumcost.algorithm.HungarianSolver;
-import com.nibm.pdsa.games.minimumcost.model.AssignmentResult;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.nibm.pdsa.games.minimumcost.algorithm.HungarianSolver;
+import com.nibm.pdsa.games.minimumcost.model.AssignmentResult;
 
 class HungarianSolverTest {
 

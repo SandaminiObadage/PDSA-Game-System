@@ -1,9 +1,9 @@
 package com.nibm.pdsa.games.minimumcost.algorithm;
 
+import java.util.Arrays;
+
 import com.nibm.pdsa.common.exception.BadRequestException;
 import com.nibm.pdsa.games.minimumcost.model.AssignmentResult;
-
-import java.util.Arrays;
 
 public class GreedyLocalOptimizationSolver {
 

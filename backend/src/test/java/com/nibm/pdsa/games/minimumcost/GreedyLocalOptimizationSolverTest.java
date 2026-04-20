@@ -1,11 +1,11 @@
 package com.nibm.pdsa.games.minimumcost;
 
-import com.nibm.pdsa.games.minimumcost.algorithm.GreedyLocalOptimizationSolver;
-import com.nibm.pdsa.games.minimumcost.model.AssignmentResult;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.nibm.pdsa.games.minimumcost.algorithm.GreedyLocalOptimizationSolver;
+import com.nibm.pdsa.games.minimumcost.model.AssignmentResult;
 
 class GreedyLocalOptimizationSolverTest {
 
