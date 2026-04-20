@@ -21,6 +21,8 @@ public class SolveRequest {
     @Max(5000)
     private int persistSolutionLimit = 200;
 
+    private String viewerRole = "PLAYER";
+
     public int getBoardSize() {
         return boardSize;
     }
@@ -51,5 +53,13 @@ public class SolveRequest {
 
     public void setPersistSolutionLimit(int persistSolutionLimit) {
         this.persistSolutionLimit = persistSolutionLimit;
+    }
+
+    public String getViewerRole() {
+        return viewerRole;
+    }
+
+    public void setViewerRole(String viewerRole) {
+        this.viewerRole = viewerRole;
     }
 }
