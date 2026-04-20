@@ -216,4 +216,25 @@ public class SnakeLadderService {
         sb.append("]");
         return sb.toString();
     }
+
+    public com.nibm.pdsa.games.snakeladder.dto.SnakeLadderLeaderboardResponse getLeaderboard(int limit,
+            Long gameRoundId) {
+        if (repository == null) {
+            throw new BadRequestException("Database leaderboard is not available in in-memory mode.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
+        com.nibm.pdsa.games.snakeladder.dto.SnakeLadderLeaderboardResponse response = new com.nibm.pdsa.games.snakeladder.dto.SnakeLadderLeaderboardResponse();
+        response.setGameTypeId(gameTypeId);
+        response.setGameCode(GAME_CODE);
+        response.setRoundId(effectiveRoundId);
+        if (effectiveRoundId == null) {
+            response.setLeaderboard(List.of());
+            return response;
+        }
+
+        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit, effectiveRoundId));
+        return response;
+    }
 }

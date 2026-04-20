@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Dashboard from './pages/Dashboard';
 import SixteenQueensPage from './pages/sixteen-queens/page';
 import SnakeLadderPage from './pages/snake-ladder/page';
+import SnakeLadderLeaderboardPage from './pages/snake-ladder/leaderboard';
 import GameNotAvailable from './pages/GameNotAvailable';
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/games/sixteen-queens" element={<SixteenQueensPage />} />
         <Route path="/games/snake-ladder" element={<SnakeLadderPage />} />
+        <Route path="/games/snake-ladder/leaderboard" element={<SnakeLadderLeaderboardPage />} />
         <Route path="/games/:gameId" element={<GameNotAvailable />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

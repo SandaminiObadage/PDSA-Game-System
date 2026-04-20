@@ -143,9 +143,28 @@ function SnakeLadderPage() {
             then choose the minimum dice throws from three algorithm-derived options.
           </p>
         </div>
-        <div className="status-card">
-          <span>Status</span>
-          <strong>{status}</strong>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+          <div className="status-card">
+            <span>Status</span>
+            <strong>{status}</strong>
+          </div>
+          <button
+            className="leaderboard-button"
+            onClick={() => navigate('/games/snake-ladder/leaderboard')}
+            title="View leaderboard"
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            📊 Leaderboard
+          </button>
         </div>
       </section>
 

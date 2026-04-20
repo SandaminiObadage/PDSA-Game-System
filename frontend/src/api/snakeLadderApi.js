@@ -17,3 +17,13 @@ export async function submitSnakeLadder(payload) {
   const response = await client.post('/submit', payload);
   return response.data;
 }
+
+export async function getSnakeLadderLeaderboard(limit = 10, roundId = null) {
+  const params = new URLSearchParams();
+  params.append('limit', limit);
+  if (roundId) {
+    params.append('roundId', roundId);
+  }
+  const response = await client.get('/leaderboard?' + params.toString());
+  return response.data;
+}

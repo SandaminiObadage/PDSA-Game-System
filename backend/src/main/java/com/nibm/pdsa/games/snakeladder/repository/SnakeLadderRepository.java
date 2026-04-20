@@ -83,4 +83,46 @@ public class SnakeLadderRepository {
                 rs -> rs.next() ? rs.getString("expected_output_json") : null,
                 gameRoundId);
     }
+
+    public Long findLatestRoundId(long gameTypeId) {
+        return jdbcTemplate.query(
+                "SELECT id FROM game_rounds WHERE game_type_id = ? ORDER BY id DESC LIMIT 1",
+                rs -> rs.next() ? rs.getLong("id") : null,
+                gameTypeId);
+    }
+
+    public java.util.List<com.nibm.pdsa.games.snakeladder.dto.LeaderboardEntry> findLeaderboard(long gameTypeId,
+            int limit, Long gameRoundId) {
+        String sql = """
+                SELECT
+                    p.id AS player_id,
+                    p.player_name AS player_name,
+                    COUNT(pa.id) AS total_answers,
+                    SUM(CASE WHEN pa.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
+                    MAX(pa.submitted_at) AS last_submitted_at
+                FROM player_answers pa
+                JOIN players p ON p.id = pa.player_id
+                JOIN game_rounds gr ON gr.id = pa.game_round_id
+                WHERE gr.game_type_id = ?
+                  AND (? IS NULL OR gr.id = ?)
+                GROUP BY p.id, p.player_name
+                ORDER BY correct_answers DESC, total_answers ASC, last_submitted_at ASC
+                LIMIT ?
+                """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            com.nibm.pdsa.games.snakeladder.dto.LeaderboardEntry item = new com.nibm.pdsa.games.snakeladder.dto.LeaderboardEntry();
+            long totalAnswers = rs.getLong("total_answers");
+            long correctAnswers = rs.getLong("correct_answers");
+            double accuracy = totalAnswers > 0 ? (correctAnswers * 100.0) / totalAnswers : 0.0;
+
+            item.setPlayerId(rs.getLong("player_id"));
+            item.setPlayerName(rs.getString("player_name"));
+            item.setTotalAnswers(totalAnswers);
+            item.setCorrectAnswers(correctAnswers);
+            item.setAccuracy(accuracy);
+            item.setLastSubmittedAt(rs.getString("last_submitted_at"));
+            return item;
+        }, gameTypeId, gameRoundId, gameRoundId, limit);
+    }
 }
