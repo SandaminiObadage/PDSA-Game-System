@@ -108,6 +108,17 @@ h1 {
   font-size: 20px;
 }
 
+.info-chip {
+  margin: 0 0 12px;
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #c8d8f8;
+  background: rgba(30, 41, 59, 0.6);
+  font-size: 13px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -165,6 +176,63 @@ button:disabled {
   gap: 12px;
   flex-wrap: wrap;
   margin: 16px 0;
+}
+
+.board-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.grid-board {
+  margin-top: 14px;
+  display: grid;
+  grid-template-rows: repeat(16, minmax(0, 1fr));
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+}
+
+.grid-cell {
+  border: none;
+  border-radius: 0;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  font-weight: 800;
+  font-size: clamp(10px, 1.2vw, 14px);
+  line-height: 1;
+}
+
+.grid-cell.light {
+  background: #dbe7ff;
+  color: #152340;
+}
+
+.grid-cell.dark {
+  background: #2e4f85;
+  color: #e8efff;
+}
+
+.grid-cell.selected {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+}
+
+.grid-hint {
+  margin: 12px 0 0;
+  color: #a6b8d8;
+  font-size: 13px;
+}
+
+.grid-hint.warn {
+  color: #fca5a5;
 }
 
 .result-box,

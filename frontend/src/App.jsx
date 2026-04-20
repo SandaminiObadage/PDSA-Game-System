@@ -8,8 +8,9 @@ import {
   submitSixteenQueens
 } from './api/sixteenQueensApi';
 
+const BOARD_SIZE = 16;
+
 const defaultSolveForm = {
-  boardSize: 16,
   threadCount: 8,
   solutionSampleLimit: 12,
   persistSolutionLimit: 200
@@ -17,14 +18,33 @@ const defaultSolveForm = {
 
 const defaultSubmitForm = {
   playerName: '',
-  gameRoundId: '',
-  boardSize: 16,
-  answer: ''
+  gameRoundId: ''
+};
+
+const emptyBoard = () => Array(BOARD_SIZE).fill(-1);
+
+const computeLocalConflicts = (queenColumns) => {
+  const pairs = [];
+  for (let rowA = 0; rowA < BOARD_SIZE; rowA += 1) {
+    for (let rowB = rowA + 1; rowB < BOARD_SIZE; rowB += 1) {
+      const colA = queenColumns[rowA];
+      const colB = queenColumns[rowB];
+      if (colA < 0 || colB < 0) {
+        continue;
+      }
+
+      if (colA === colB || Math.abs(rowA - rowB) === Math.abs(colA - colB)) {
+        pairs.push({ rowA, colA, rowB, colB });
+      }
+    }
+  }
+  return pairs;
 };
 
 function App() {
   const [solveForm, setSolveForm] = useState(defaultSolveForm);
   const [submitForm, setSubmitForm] = useState(defaultSubmitForm);
+  const [queenColumns, setQueenColumns] = useState(emptyBoard);
   const [solveResult, setSolveResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
   const [historyResult, setHistoryResult] = useState(null);
@@ -34,7 +54,48 @@ function App() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = useMemo(() => submitForm.playerName.trim() && submitForm.answer.trim(), [submitForm]);
+  const answerFromGrid = useMemo(() => {
+    if (queenColumns.some((col) => col < 0)) {
+      return '';
+    }
+    return queenColumns.join(',');
+  }, [queenColumns]);
+
+  const conflicts = useMemo(() => computeLocalConflicts(queenColumns), [queenColumns]);
+  const canSubmit = useMemo(
+    () => submitForm.playerName.trim() && answerFromGrid && conflicts.length === 0,
+    [submitForm, answerFromGrid, conflicts.length]
+  );
+
+  const toggleQueen = (row, col) => {
+    setQueenColumns((current) => {
+      const next = [...current];
+      next[row] = current[row] === col ? -1 : col;
+      return next;
+    });
+  };
+
+  const clearGrid = () => {
+    setQueenColumns(emptyBoard());
+  };
+
+  const loadSampleToGrid = () => {
+    const firstSample = solveResult?.sampleSolutions?.[0];
+    if (!firstSample) {
+      setError('Run solver first to get sample solutions.');
+      return;
+    }
+
+    const parsed = firstSample.split(',').map((value) => Number(value));
+    if (parsed.length !== BOARD_SIZE || parsed.some((value) => Number.isNaN(value) || value < 0 || value >= BOARD_SIZE)) {
+      setError('Unable to load sample solution into grid.');
+      return;
+    }
+
+    setQueenColumns(parsed);
+    setError('');
+    setStatus('Loaded first sample solution into the grid.');
+  };
 
   const handleSolve = async (event) => {
     event.preventDefault();
@@ -43,7 +104,7 @@ function App() {
     setStatus('Running solve round...');
     try {
       const data = await solveSixteenQueens({
-        boardSize: Number(solveForm.boardSize),
+        boardSize: BOARD_SIZE,
         threadCount: Number(solveForm.threadCount),
         solutionSampleLimit: Number(solveForm.solutionSampleLimit),
         persistSolutionLimit: Number(solveForm.persistSolutionLimit)
@@ -51,7 +112,6 @@ function App() {
       setSolveResult(data);
       setSubmitForm((current) => ({
         ...current,
-        boardSize: Number(solveForm.boardSize),
         gameRoundId: data.gameRoundId || current.gameRoundId
       }));
       setStatus('Solve completed and saved to SQLite.');
@@ -72,8 +132,8 @@ function App() {
     try {
       const payload = {
         playerName: submitForm.playerName.trim(),
-        boardSize: Number(submitForm.boardSize),
-        answer: submitForm.answer.trim()
+        boardSize: BOARD_SIZE,
+        answer: answerFromGrid
       };
 
       if (submitForm.gameRoundId !== '') {
@@ -191,17 +251,8 @@ function App() {
       <section className="grid-layout">
         <article className="panel">
           <h2>Run Solver</h2>
+          <p className="info-chip">Board Size: 16 x 16 (fixed)</p>
           <form onSubmit={handleSolve} className="form-grid">
-            <label>
-              Board Size
-              <input
-                type="number"
-                min="8"
-                max="16"
-                value={solveForm.boardSize}
-                onChange={(e) => setSolveForm({ ...solveForm, boardSize: e.target.value })}
-              />
-            </label>
             <label>
               Thread Count
               <input
@@ -259,24 +310,51 @@ function App() {
             </label>
             <label>
               Board Size
-              <input
-                type="number"
-                min="8"
-                max="16"
-                value={submitForm.boardSize}
-                onChange={(e) => setSubmitForm({ ...submitForm, boardSize: e.target.value })}
-              />
+              <input value="16 x 16 (fixed)" readOnly />
             </label>
             <label className="full-width">
-              Answer
-              <input
-                value={submitForm.answer}
-                onChange={(e) => setSubmitForm({ ...submitForm, answer: e.target.value })}
-                placeholder="0,2,4,1,3,8,10,12,14,5,7,9,11,13,15,6"
-              />
+              Answer from Grid
+              <input value={answerFromGrid || 'Place one queen in each row'} readOnly />
             </label>
             <button type="submit" disabled={loading || !canSubmit}>Submit</button>
           </form>
+
+          <div className="board-actions">
+            <button type="button" onClick={clearGrid} disabled={loading}>Clear Grid</button>
+            <button type="button" onClick={loadSampleToGrid} disabled={loading}>Load Sample to Grid</button>
+          </div>
+
+          <div className="grid-board" role="grid" aria-label="Sixteen queens board">
+            {Array.from({ length: BOARD_SIZE }).map((_, row) => (
+              <div key={`row-${row}`} className="grid-row" role="row">
+                {Array.from({ length: BOARD_SIZE }).map((__, col) => {
+                  const selected = queenColumns[row] === col;
+                  const dark = (row + col) % 2 === 1;
+                  return (
+                    <button
+                      type="button"
+                      key={`cell-${row}-${col}`}
+                      className={`grid-cell ${dark ? 'dark' : 'light'} ${selected ? 'selected' : ''}`}
+                      onClick={() => toggleQueen(row, col)}
+                      title={`Row ${row + 1}, Column ${col + 1}`}
+                      aria-label={`row ${row + 1}, column ${col + 1}${selected ? ', queen selected' : ''}`}
+                    >
+                      {selected ? 'Q' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          <p className={`grid-hint ${conflicts.length > 0 ? 'warn' : ''}`}>
+            {conflicts.length > 0
+              ? `Grid has ${conflicts.length} conflict(s). Adjust queen positions before submit.`
+              : answerFromGrid
+                ? 'Grid is conflict-free and ready to submit.'
+                : 'Place exactly one queen per row to build your answer.'}
+          </p>
+
           {submitResult && <ResultBox title="Submission Result" data={submitResult} />}
         </article>
       </section>

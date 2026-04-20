@@ -1,5 +1,7 @@
 package com.nibm.pdsa.games.sixteenqueens.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 public class SubmitAnswerRequest {
@@ -12,6 +14,8 @@ public class SubmitAnswerRequest {
     @NotBlank
     private String answer; // Example: 0,4,7,5,2,6,1,3 for 8x8
 
+    @Min(16)
+    @Max(16)
     private int boardSize = 16;
 
     public String getPlayerName() {
