@@ -34,8 +34,9 @@ public class SnakeLadderService {
         }
 
         // Generate random ladders and snakes
-        List<Ladder> ladders = generateLadders(boardSize);
-        List<Snake> snakes = generateSnakes(boardSize);
+        Set<Integer> usedCells = new HashSet<>();
+        List<Ladder> ladders = generateLadders(boardSize, usedCells);
+        List<Snake> snakes = generateSnakes(boardSize, usedCells);
 
         Board board = new Board(boardSize, ladders, snakes);
 
@@ -100,11 +101,21 @@ public class SnakeLadderService {
         int correctAnswer = Integer.parseInt(expected);
 
         boolean isCorrect = request.getAnswer().equals(correctAnswer);
+        boolean isDraw = !isCorrect && Math.abs(request.getAnswer() - correctAnswer) == 1;
 
         SubmitAnswerResponse response = new SubmitAnswerResponse();
         response.setCorrect(isCorrect);
         response.setCorrectAnswer(correctAnswer);
-        response.setMessage(isCorrect ? "Correct! Well done." : "Incorrect. Try again.");
+        if (isCorrect) {
+            response.setOutcome("WIN");
+            response.setMessage("Correct! Well done.");
+        } else if (isDraw) {
+            response.setOutcome("DRAW");
+            response.setMessage("So close! It is a draw. Try once more.");
+        } else {
+            response.setOutcome("LOSE");
+            response.setMessage("Incorrect. Try again.");
+        }
 
         if (repository != null) {
             long playerId = repository.ensurePlayerAndGetId(request.getPlayerName());
@@ -131,10 +142,9 @@ public class SnakeLadderService {
         return null;
     }
 
-    private List<Ladder> generateLadders(int n) {
+    private List<Ladder> generateLadders(int n, Set<Integer> usedCells) {
         int numLadders = n - 2;
         List<Ladder> ladders = new ArrayList<>();
-        Set<Integer> usedCells = new HashSet<>();
         Random rand = new Random();
 
         for (int i = 0; i < numLadders; i++) {
@@ -152,10 +162,9 @@ public class SnakeLadderService {
         return ladders;
     }
 
-    private List<Snake> generateSnakes(int n) {
+    private List<Snake> generateSnakes(int n, Set<Integer> usedCells) {
         int numSnakes = n - 2;
         List<Snake> snakes = new ArrayList<>();
-        Set<Integer> usedCells = new HashSet<>();
         Random rand = new Random();
 
         for (int i = 0; i < numSnakes; i++) {

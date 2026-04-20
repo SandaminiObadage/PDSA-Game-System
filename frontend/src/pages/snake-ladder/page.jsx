@@ -94,7 +94,13 @@ function SnakeLadderPage() {
       };
       const result = await submitSnakeLadder(payload);
       setSubmitResult(result);
-      setStatus(result.isCorrect ? 'Correct! Well done.' : 'Incorrect. Try again.');
+      if (result.outcome === 'WIN') {
+        setStatus('Win! Correct answer identified.');
+      } else if (result.outcome === 'DRAW') {
+        setStatus('Draw! Very close, try once more.');
+      } else {
+        setStatus('Lose! Incorrect answer, try again.');
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message);
       setStatus('Error occurred.');
@@ -262,6 +268,7 @@ function SnakeLadderPage() {
       {submitResult && (
         <section className="panel">
           <div>
+            <p><strong>Outcome:</strong> {submitResult.outcome || (submitResult.isCorrect ? 'WIN' : 'LOSE')}</p>
             <h2>{submitResult.message}</h2>
             {!submitResult.isCorrect && <p>Correct answer: {submitResult.correctAnswer}</p>}
           </div>

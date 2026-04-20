@@ -1,8 +1,8 @@
 package com.nibm.pdsa.games.snakeladder;
 
+import com.nibm.pdsa.common.exception.BadRequestException;
 import com.nibm.pdsa.games.snakeladder.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.snakeladder.dto.SubmitAnswerRequest;
-import com.nibm.pdsa.games.snakeladder.dto.SubmitAnswerResponse;
 import com.nibm.pdsa.games.snakeladder.service.SnakeLadderService;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +27,8 @@ class SnakeLadderServiceTest {
 
     @Test
     void shouldRejectInvalidBoardSize() {
-        assertThrows(IllegalArgumentException.class, () -> service.runComparison(5));
-        assertThrows(IllegalArgumentException.class, () -> service.runComparison(13));
+        assertThrows(BadRequestException.class, () -> service.runComparison(5));
+        assertThrows(BadRequestException.class, () -> service.runComparison(13));
     }
 
     @Test
@@ -44,10 +44,7 @@ class SnakeLadderServiceTest {
         request.setAnswer(solveResponse.getBfsMinThrows());
         request.setBoardSize(8);
 
-        // Since repository is null, it should handle gracefully
-        SubmitAnswerResponse response = service.submitAnswer(request);
-        assertNotNull(response);
-        // Since no DB, it will say invalid round
-        assertFalse(response.isCorrect());
+        // Since repository is null, service should reject invalid round lookup
+        assertThrows(BadRequestException.class, () -> service.submitAnswer(request));
     }
 }
