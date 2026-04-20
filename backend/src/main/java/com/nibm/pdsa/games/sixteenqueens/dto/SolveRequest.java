@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Min;
 
 public class SolveRequest {
 
-    @Min(8)
+    @Min(16)
     @Max(16)
     private int boardSize = 16;
 

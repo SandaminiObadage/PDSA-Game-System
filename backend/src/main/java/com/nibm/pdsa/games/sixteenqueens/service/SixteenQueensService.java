@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SixteenQueensService {
 
     private static final String GAME_CODE = "SIXTEEN_QUEENS";
+    private static final int FIXED_BOARD_SIZE = 16;
 
     private final BitmaskBacktrackingSolver solver = new BitmaskBacktrackingSolver();
     private final SixteenQueensRepository repository;
@@ -37,6 +38,10 @@ public class SixteenQueensService {
     }
 
     public SolveComparisonResponse runComparison(int boardSize, int threadCount, int sampleLimit, int persistSolutionLimit) {
+        if (boardSize != FIXED_BOARD_SIZE) {
+            throw new BadRequestException("Board size is fixed to 16 for this game.");
+        }
+
         int effectiveCollectionLimit = Math.max(sampleLimit, persistSolutionLimit);
         QueensSolveResult sequential = solver.solveSequential(boardSize, effectiveCollectionLimit);
         QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, sampleLimit);
@@ -92,6 +97,10 @@ public class SixteenQueensService {
 
     public SubmitAnswerResponse submitAnswer(SubmitAnswerRequest request) {
         int boardSize = request.getBoardSize();
+        if (boardSize != FIXED_BOARD_SIZE) {
+            throw new BadRequestException("Board size is fixed to 16 for this game.");
+        }
+
         int[] positions;
         try {
             positions = solver.parseAnswer(request.getAnswer(), boardSize);
