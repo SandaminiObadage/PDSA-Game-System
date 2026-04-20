@@ -17,10 +17,10 @@ const GAMES = [
   },
   {
     id: 'minimum-cost',
-    name: 'Minimum Cost Path',
-    description: 'Find the path from top-left to bottom-right with minimum cost using dynamic programming.',
-    icon: '💰',
-    color: '#ec4899'
+    name: 'Minimum Cost Assignment',
+    description: 'Compare Hungarian and greedy optimization to solve a scalable assignment problem.',
+    icon: '🧮',
+    color: '#10b981'
   },
   {
     id: 'snake-ladder',

@@ -10,5 +10,6 @@ spring:
       schema-locations:
         - classpath:db/migration/V1__init_sqlite_schema.sql
         - classpath:db/migration/V3__add_algorithm_solution_answers.sql
+        - classpath:db/migration/V4__minimum_cost_game.sql
 server:
   port: 8080
