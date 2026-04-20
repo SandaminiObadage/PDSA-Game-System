@@ -481,3 +481,200 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+/* Snake Ladder Styles */
+.snake-ladder-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #333;
+  margin: 20px 0;
+}
+
+.board-row {
+  display: flex;
+}
+
+.cell {
+  width: 50px;
+  height: 50px;
+  border: 1px solid #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: #f0f0f0;
+  color: #333;
+}
+
+.cell.start {
+  background: #4CAF50;
+  color: white;
+}
+
+.cell.end {
+  background: #f44336;
+  color: white;
+}
+
+.cell.ladder-start {
+  background: #2196F3;
+  color: white;
+}
+
+.cell.snake-head {
+  background: #FF9800;
+  color: white;
+}
+
+.choices {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.choices button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background: #ddd;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.choices button.selected {
+  background: #4CAF50;
+  color: white;
+}
+
+.result.success {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+.result.failure {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  color: #333;
+}
+
+.modal-content h3 {
+  margin: 0 0 15px;
+  color: #f59e0b;
+  font-size: 24px;
+}
+
+.modal-content p {
+  margin: 0 0 20px;
+  color: #666;
+}
+
+.name-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 5px;
+  font-size: 16px;
+  margin-bottom: 20px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.name-input:focus {
+  border-color: #f59e0b;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.cancel-button,
+.start-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.cancel-button {
+  background: #6c757d;
+  color: white;
+}
+
+.cancel-button:hover {
+  background: #5a6268;
+}
+
+.start-button {
+  background: #f59e0b;
+  color: white;
+}
+
+.start-button:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.start-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  color: #666;
+}
+
+/* Welcome Message */
+.welcome-message {
+  background: linear-gradient(180deg, #173968 0%, #244da7 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-message p {
+  margin: 0;
+  font-size: 18px;
+}
+
+.welcome-message strong {
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
