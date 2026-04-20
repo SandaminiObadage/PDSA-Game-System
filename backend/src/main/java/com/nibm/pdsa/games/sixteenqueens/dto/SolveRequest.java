@@ -17,6 +17,10 @@ public class SolveRequest {
     @Max(500)
     private int solutionSampleLimit = 50;
 
+    @Min(0)
+    @Max(5000)
+    private int persistSolutionLimit = 200;
+
     public int getBoardSize() {
         return boardSize;
     }
@@ -39,5 +43,13 @@ public class SolveRequest {
 
     public void setSolutionSampleLimit(int solutionSampleLimit) {
         this.solutionSampleLimit = solutionSampleLimit;
+    }
+
+    public int getPersistSolutionLimit() {
+        return persistSolutionLimit;
+    }
+
+    public void setPersistSolutionLimit(int persistSolutionLimit) {
+        this.persistSolutionLimit = persistSolutionLimit;
     }
 }

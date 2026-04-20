@@ -1,7 +1,9 @@
 package com.nibm.pdsa.games.sixteenqueens.repository;
 
+import com.nibm.pdsa.games.sixteenqueens.dto.LeaderboardEntry;
 import com.nibm.pdsa.games.sixteenqueens.dto.PlayerAnswerHistoryItem;
 import com.nibm.pdsa.games.sixteenqueens.dto.RoundHistoryItem;
+import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.List;
 
 @Repository
@@ -149,6 +152,22 @@ public class SixteenQueensRepository {
         );
     }
 
+    public int insertKnownSolutionIfMissing(long gameTypeId, String solutionHash, String solutionJson) {
+        return jdbcTemplate.update(
+                "INSERT OR IGNORE INTO recognized_solutions (game_type_id, solution_hash, solution_json, is_active) VALUES (?, ?, ?, 0)",
+                gameTypeId, solutionHash, solutionJson
+        );
+    }
+
+    public long countKnownSolutions(long gameTypeId) {
+        Long count = jdbcTemplate.query(
+                "SELECT COUNT(*) AS cnt FROM recognized_solutions WHERE game_type_id = ?",
+                rs -> rs.next() ? rs.getLong("cnt") : 0L,
+                gameTypeId
+        );
+        return count == null ? 0L : count;
+    }
+
     public List<RoundHistoryItem> findRecentRoundHistory(long gameTypeId, int limit) {
         String sql = """
                 SELECT
@@ -208,6 +227,90 @@ public class SixteenQueensRepository {
             item.setSubmittedAt(rs.getString("submitted_at"));
             return item;
         }, gameTypeId, limit);
+    }
+
+    public List<LeaderboardEntry> findLeaderboard(long gameTypeId, int limit) {
+        String sql = """
+                SELECT
+                    p.id AS player_id,
+                    p.player_name AS player_name,
+                    COUNT(pa.id) AS total_answers,
+                    SUM(CASE WHEN pa.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
+                    (
+                        SELECT COUNT(*)
+                        FROM recognized_solutions rs
+                        WHERE rs.game_type_id = ? AND rs.recognized_by_player_id = p.id
+                    ) AS recognized_solution_count,
+                    MAX(pa.submitted_at) AS last_submitted_at
+                FROM player_answers pa
+                JOIN players p ON p.id = pa.player_id
+                JOIN game_rounds gr ON gr.id = pa.game_round_id
+                WHERE gr.game_type_id = ?
+                GROUP BY p.id, p.player_name
+                ORDER BY recognized_solution_count DESC, correct_answers DESC, total_answers ASC, last_submitted_at ASC
+                LIMIT ?
+                """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            LeaderboardEntry item = new LeaderboardEntry();
+            long totalAnswers = rs.getLong("total_answers");
+            long correctAnswers = rs.getLong("correct_answers");
+            item.setPlayerId(rs.getLong("player_id"));
+            item.setPlayerName(rs.getString("player_name"));
+            item.setTotalAnswers(totalAnswers);
+            item.setCorrectAnswers(correctAnswers);
+            item.setRecognizedSolutionCount(rs.getLong("recognized_solution_count"));
+            item.setAccuracy(totalAnswers == 0 ? 0.0 : (double) correctAnswers / totalAnswers);
+            item.setLastSubmittedAt(rs.getString("last_submitted_at"));
+            return item;
+        }, gameTypeId, gameTypeId, limit);
+    }
+
+    public SixteenQueensReportResponse getReport(long gameTypeId) {
+        String roundSql = """
+                SELECT
+                    COUNT(*) AS total_rounds,
+                    COALESCE(AVG(seq.execution_time_ms), 0) AS avg_seq,
+                    COALESCE(AVG(par.execution_time_ms), 0) AS avg_par,
+                    COALESCE(MIN(seq.execution_time_ms), 0) AS best_seq,
+                    COALESCE(MIN(par.execution_time_ms), 0) AS best_par
+                FROM game_rounds gr
+                LEFT JOIN algorithm_runs seq
+                    ON seq.game_round_id = gr.id AND seq.algorithm_name = 'SEQUENTIAL_BACKTRACKING'
+                LEFT JOIN algorithm_runs par
+                    ON par.game_round_id = gr.id AND par.algorithm_name = 'THREADED_SEARCH'
+                WHERE gr.game_type_id = ?
+                """;
+
+        Map<String, Object> roundStats = jdbcTemplate.queryForMap(roundSql, gameTypeId);
+
+        String answerSql = """
+                SELECT
+                    COUNT(*) AS total_answers,
+                    COALESCE(SUM(CASE WHEN pa.is_correct = 1 THEN 1 ELSE 0 END), 0) AS total_correct
+                FROM player_answers pa
+                JOIN game_rounds gr ON gr.id = pa.game_round_id
+                WHERE gr.game_type_id = ?
+                """;
+
+        Map<String, Object> answerStats = jdbcTemplate.queryForMap(answerSql, gameTypeId);
+
+        long totalRounds = ((Number) roundStats.get("total_rounds")).longValue();
+        double avgSeq = ((Number) roundStats.get("avg_seq")).doubleValue();
+        double avgPar = ((Number) roundStats.get("avg_par")).doubleValue();
+
+        SixteenQueensReportResponse response = new SixteenQueensReportResponse();
+        response.setTotalRounds(totalRounds);
+        response.setAverageSequentialTimeMs(avgSeq);
+        response.setAverageParallelTimeMs(avgPar);
+        response.setAverageSpeedup(avgPar == 0.0 ? 0.0 : avgSeq / avgPar);
+        response.setBestSequentialTimeMs(((Number) roundStats.get("best_seq")).longValue());
+        response.setBestParallelTimeMs(((Number) roundStats.get("best_par")).longValue());
+        response.setTotalPlayerAnswers(((Number) answerStats.get("total_answers")).longValue());
+        response.setTotalCorrectAnswers(((Number) answerStats.get("total_correct")).longValue());
+        response.setTotalKnownSolutionsPersisted(countKnownSolutions(gameTypeId));
+        response.setActiveRecognizedSolutions(countActiveRecognized(gameTypeId));
+        return response;
     }
 
     private int extractInt(String json, String fieldName) {

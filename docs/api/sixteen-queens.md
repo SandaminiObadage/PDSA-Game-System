@@ -9,7 +9,8 @@ Request:
 {
   "boardSize": 16,
   "threadCount": 8,
-  "solutionSampleLimit": 50
+  "solutionSampleLimit": 50,
+  "persistSolutionLimit": 500
 }
 ```
 
@@ -20,6 +21,9 @@ Response fields:
 - `parallelTimeMs`
 - `speedup`
 - `sampleSolutions`
+- `persistedSolutionCount`
+
+`persistSolutionLimit` controls how many discovered solutions are saved as known answers in DB for this puzzle.
 
 ## 2. Submit player answer
 
@@ -54,3 +58,21 @@ Returns:
 - recent player answers
 
 Use this endpoint for database screenshots and report evidence.
+
+## 4. Leaderboard
+
+GET `/api/games/sixteen-queens/leaderboard?limit=10`
+
+Returns ranked players by recognized unique solutions, then correct answers.
+
+## 5. Report Summary
+
+GET `/api/games/sixteen-queens/report`
+
+Returns aggregate metrics:
+- total rounds
+- average sequential vs threaded times
+- average speedup
+- total known persisted solutions
+- total/active recognized solutions
+- answer statistics
