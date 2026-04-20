@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   closeSixteenQueensRound,
   fetchSixteenQueensHistory,
@@ -10,521 +11,599 @@ import {
   solveSixteenQueens,
   submitSixteenQueens
 } from '../../api/sixteenQueensApi';
+import { ChessBoard } from '../../features/sixteen-queens/components/ChessBoard';
+import { HistoryTimeline } from '../../features/sixteen-queens/components/HistoryTimeline';
+import { LeaderboardTable } from '../../features/sixteen-queens/components/LeaderboardTable';
+import { ReportsDashboard } from '../../features/sixteen-queens/components/ReportsDashboard';
+import { ToastStack } from '../../features/sixteen-queens/components/ToastStack';
+import { useQueensGameStore } from '../../features/sixteen-queens/useQueensGameStore';
+import { useSoundEffects } from '../../features/sixteen-queens/useSoundEffects';
+import { getBoardStatus, parseAnswerString, toAnswerString } from '../../features/sixteen-queens/validation';
 
-const BOARD_SIZE = 16;
 const SAMPLE_LIMIT = 8;
-
-const defaultSolveForm = {
-  threadCount: 4,
-  solutionSampleLimit: 8,
-  persistSolutionLimit: 100
-};
-
-const defaultSubmitForm = {
-  playerName: '',
-  gameRoundId: ''
-};
-
-const emptyBoard = () => Array(BOARD_SIZE).fill(-1);
-
-const computeLocalConflicts = (queenColumns) => {
-  const pairs = [];
-  for (let rowA = 0; rowA < BOARD_SIZE; rowA += 1) {
-    for (let rowB = rowA + 1; rowB < BOARD_SIZE; rowB += 1) {
-      const colA = queenColumns[rowA];
-      const colB = queenColumns[rowB];
-      if (colA < 0 || colB < 0) {
-        continue;
-      }
-
-      if (colA === colB || Math.abs(rowA - rowB) === Math.abs(colA - colB)) {
-        pairs.push({ rowA, colA, rowB, colB });
-      }
-    }
-  }
-  return pairs;
-};
+const LEADERBOARD_LIMIT = 5000;
 
 function SixteenQueensPage() {
   const navigate = useNavigate();
-  const [viewerRole, setViewerRole] = useState('PLAYER');
-  const [solveForm, setSolveForm] = useState(defaultSolveForm);
-  const [submitForm, setSubmitForm] = useState(defaultSubmitForm);
-  const [queenColumns, setQueenColumns] = useState(emptyBoard);
-  const [solveResult, setSolveResult] = useState(null);
-  const [submitResult, setSubmitResult] = useState(null);
-  const [historyResult, setHistoryResult] = useState(null);
-  const [leaderboardResult, setLeaderboardResult] = useState(null);
-  const [reportResult, setReportResult] = useState(null);
-  const [isRoundClosed, setIsRoundClosed] = useState(false);
-  const [showWinPopup, setShowWinPopup] = useState(false);
-  const [status, setStatus] = useState('Ready');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const sounds = useSoundEffects();
 
-  const answerFromGrid = useMemo(() => {
-    if (queenColumns.some((col) => col < 0)) {
-      return '';
-    }
-    return queenColumns.join(',');
-  }, [queenColumns]);
+  const {
+    size,
+    board,
+    analysis,
+    hoverCell,
+    lastMoveCellKey,
+    invalidMoveCellKey,
+    gameState,
+    viewerRole,
+    solveConfig,
+    submitForm,
+    solveResult,
+    sampleSolutions,
+    selectedSampleIndex,
+    submitResult,
+    historyResult,
+    leaderboardResult,
+    reportResult,
+    roundClosed,
+    loading,
+    statusMessage,
+    errorMessage,
+    toasts,
+    celebration,
+    setLoading,
+    setStatusMessage,
+    setErrorMessage,
+    setViewerRole,
+    setRoundClosed,
+    updateSolveConfig,
+    updateSubmitForm,
+    setApiData,
+    pushToast,
+    removeToast,
+    setCelebration,
+    clearBoard,
+    setHoverCell,
+    loadBoard,
+    toggleQueen
+  } = useQueensGameStore();
 
-  const conflicts = useMemo(() => computeLocalConflicts(queenColumns), [queenColumns]);
-  const canSubmit = useMemo(
-    () => submitForm.playerName.trim() && answerFromGrid && conflicts.length === 0,
-    [submitForm, answerFromGrid, conflicts.length]
-  );
+  const boardStatus = getBoardStatus(analysis);
+  const answerFromGrid = useMemo(() => toAnswerString(board), [board]);
+  const canSubmit = submitForm.playerName.trim().length > 0 && boardStatus === 'valid';
+  const showSamplesInControls = viewerRole === 'ADMIN' && Boolean(solveResult);
 
-  const toggleQueen = (row, col) => {
-    setQueenColumns((current) => {
-      const next = [...current];
-      next[row] = current[row] === col ? -1 : col;
-      return next;
-    });
-  };
+  const handleSelectSample = (index) => {
+    const selected = sampleSolutions[index];
+    const parsed = parseAnswerString(selected, size);
 
-  const clearGrid = () => {
-    setQueenColumns(emptyBoard());
-  };
-
-  const loadSampleToGrid = async () => {
-    const selectedRoundId = submitForm.gameRoundId !== ''
-      ? Number(submitForm.gameRoundId)
-      : solveResult?.gameRoundId;
-
-    if (viewerRole === 'PLAYER' && !isRoundClosed) {
-      setError('Samples are hidden for players while the round is active. Ask admin to close the round first.');
+    if (!parsed) {
+      pushToast({ tone: 'warning', title: 'Invalid sample', message: 'This sample could not be parsed for board preview.' });
       return;
     }
 
+    setApiData('selectedSampleIndex', index);
+    loadBoard(parsed);
+    setStatusMessage(`Previewing sample pattern ${index + 1}.`);
+  };
+
+  useEffect(() => {
+    const preload = async () => {
+      try {
+        const [historyData, leaderboardData, reportData] = await Promise.all([
+          fetchSixteenQueensHistory(12),
+          fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT),
+          fetchSixteenQueensReport()
+        ]);
+        setApiData('historyResult', historyData);
+        setApiData('leaderboardResult', leaderboardData);
+        setApiData('reportResult', reportData);
+      } catch {
+        // Dashboard is still usable without initial data.
+      }
+    };
+
+    preload();
+  }, [setApiData]);
+
+  const checkAllCompleted = async () => {
+    const latestReport = await fetchSixteenQueensReport();
+    setApiData('reportResult', latestReport);
+    if (
+      latestReport?.totalKnownSolutionsPersisted > 0 &&
+      latestReport?.activeRecognizedSolutions >= latestReport?.totalKnownSolutionsPersisted
+    ) {
+      sounds.playVictory();
+      setApiData('gameState', 'all_solutions_completed');
+      setCelebration('fireworks');
+      pushToast({
+        tone: 'success',
+        title: 'All solutions completed',
+        message: 'Every persisted solution has been discovered. Great coordination!'
+      });
+    }
+  };
+
+  const withLoading = async (label, work) => {
     setLoading(true);
-    setError('');
-    setStatus('Loading sample solutions...');
+    setErrorMessage('');
+    setStatusMessage(label);
 
     try {
-      let firstSample = solveResult?.sampleSolutions?.[0];
-      if (!firstSample && selectedRoundId) {
-        const data = await fetchSixteenQueensSamples(selectedRoundId, SAMPLE_LIMIT, viewerRole);
-        firstSample = data?.sampleSolutions?.[0];
-        if (data?.samplesVisible === false) {
-          setError(data?.message || 'Samples are currently hidden for players.');
-          setStatus('Sample load blocked');
-          return;
-        }
-      }
-
-      if (!firstSample) {
-        setError('Run solver first to get sample solutions.');
-        setStatus('Sample load failed');
-        return;
-      }
-
-      const parsed = firstSample.split(',').map((value) => Number(value));
-      if (parsed.length !== BOARD_SIZE || parsed.some((value) => Number.isNaN(value) || value < 0 || value >= BOARD_SIZE)) {
-        setError('Unable to load sample solution into grid.');
-        return;
-      }
-
-      setQueenColumns(parsed);
-      setError('');
-      setStatus('Loaded first sample solution into the grid.');
+      await work();
     } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Sample load failed';
-      setError(message);
-      setStatus('Sample load failed');
+      const message =
+        requestError?.response?.data?.message ||
+        requestError?.message ||
+        'Request failed. Please retry.';
+      setErrorMessage(message);
+      pushToast({
+        tone: 'error',
+        title: 'Request failed',
+        message
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCloseRound = async () => {
-    const selectedRoundId = submitForm.gameRoundId !== ''
-      ? Number(submitForm.gameRoundId)
-      : (solveResult?.gameRoundId || undefined);
+  const handleCellClick = (row, col) => {
+    const outcome = toggleQueen(row, col);
 
-    if (!selectedRoundId) {
-      setError('No round selected to close. Run solve first or provide round ID.');
+    if (!outcome.placingQueen) {
+      sounds.playPlace();
       return;
     }
 
-    if (viewerRole === 'PLAYER') {
-      setError('Only admin can close rounds.');
+    if (!outcome.isValidMove) {
+      sounds.playInvalid();
+      pushToast({
+        tone: 'error',
+        title: 'Invalid move',
+        message: 'This queen is attacked by another queen.'
+      });
       return;
     }
 
-    if (!window.confirm(`Close round ${selectedRoundId}? Players will be able to view sample solutions after this.`)) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setStatus('Closing round...');
-    try {
-      const data = await closeSixteenQueensRound(selectedRoundId);
-      setIsRoundClosed(true);
-      setStatus(data?.message || `Round ${selectedRoundId} closed.`);
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Close round failed';
-      setError(message);
-      setStatus('Close round failed');
-    } finally {
-      setLoading(false);
-    }
+    sounds.playPlace();
   };
 
   const handleSolve = async (event) => {
     event.preventDefault();
-    setLoading(true);
-    setError('');
-    setStatus('Running solve round...');
-    try {
+    await withLoading('Running solver comparison...', async () => {
       const data = await solveSixteenQueens({
-        boardSize: BOARD_SIZE,
-        threadCount: Number(solveForm.threadCount),
-        solutionSampleLimit: Number(solveForm.solutionSampleLimit),
-        persistSolutionLimit: Number(solveForm.persistSolutionLimit),
+        boardSize: size,
+        threadCount: Number(solveConfig.threadCount),
+        solutionSampleLimit: Number(solveConfig.solutionSampleLimit),
+        persistSolutionLimit: Number(solveConfig.persistSolutionLimit),
         viewerRole
       });
-      setSolveResult(data);
-      setIsRoundClosed(false);
-      setSubmitForm((current) => ({
-        ...current,
-        gameRoundId: data.gameRoundId || current.gameRoundId
-      }));
-      setStatus('Solve completed and saved to SQLite.');
-    } catch (requestError) {
-      const message = requestError?.code === 'ECONNABORTED'
-        ? 'Solve timed out on client side. Keep backend running and try again; the request timeout is now set to 300 seconds.'
-        : (requestError?.response?.data?.message || requestError.message || 'Solve failed');
-      setError(message);
-      setStatus('Solve failed');
-    } finally {
-      setLoading(false);
-    }
+
+      setApiData('solveResult', data);
+      setApiData('sampleSolutions', data?.sampleSolutions || []);
+      setApiData('selectedSampleIndex', 0);
+      updateSubmitForm({ gameRoundId: data.gameRoundId });
+      setRoundClosed(false);
+
+      const firstSample = parseAnswerString(data?.sampleSolutions?.[0], size);
+      if (firstSample) {
+        loadBoard(firstSample);
+      }
+
+      setStatusMessage('Solver completed. Puzzle round stored successfully.');
+      pushToast({
+        tone: 'success',
+        title: 'Solver complete',
+        message: `Round ${data.gameRoundId} finished with speedup ${Number(data.speedup || 0).toFixed(2)}x.`
+      });
+    });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setLoading(true);
-    setError('');
-    setStatus('Submitting answer...');
-    try {
+
+    if (!canSubmit) {
+      pushToast({
+        tone: 'warning',
+        title: 'Board not ready',
+        message: 'Place 16 queens and remove conflicts before submitting.'
+      });
+      return;
+    }
+
+    await withLoading('Submitting answer...', async () => {
       const payload = {
         playerName: submitForm.playerName.trim(),
-        boardSize: BOARD_SIZE,
+        boardSize: size,
         answer: answerFromGrid
       };
 
-      if (submitForm.gameRoundId !== '') {
+      if (submitForm.gameRoundId) {
         payload.gameRoundId = Number(submitForm.gameRoundId);
       }
 
       const data = await submitSixteenQueens(payload);
-      setSubmitResult(data);
-      if (viewerRole === 'PLAYER' && data?.correct && !data?.alreadyRecognized) {
-        setShowWinPopup(true);
+      setApiData('submitResult', data);
+
+      if (!data.correct) {
+        setApiData('gameState', 'invalid_move');
+        sounds.playInvalid();
+        pushToast({ tone: 'error', title: 'Incorrect solution', message: data.message || 'Try another arrangement.' });
+        return;
       }
-      setStatus('Submission stored in SQLite.');
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Submit failed';
-      setError(message);
-      setStatus('Submit failed');
-    } finally {
-      setLoading(false);
-    }
+
+      if (data.alreadyRecognized) {
+        setApiData('gameState', 'duplicate_solution');
+        pushToast({
+          tone: 'warning',
+          title: 'Already discovered',
+          message: 'This valid solution was already recognized. Try another arrangement!'
+        });
+        return;
+      }
+
+      setApiData('gameState', 'correct_solution_found');
+      setCelebration('confetti');
+      sounds.playSuccess();
+      pushToast({ tone: 'success', title: 'Unique solution found', message: 'Your answer is now recognized globally.' });
+      await checkAllCompleted();
+      await Promise.all([loadHistory(), loadLeaderboard()]);
+    });
   };
 
   const loadHistory = async () => {
-    setLoading(true);
-    setError('');
-    setStatus('Loading history from SQLite...');
-    try {
-      const data = await fetchSixteenQueensHistory(10);
-      setHistoryResult(data);
-      setStatus('History loaded.');
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'History load failed';
-      setError(message);
-      setStatus('History failed');
-    } finally {
-      setLoading(false);
-    }
+    const data = await fetchSixteenQueensHistory(20);
+    setApiData('historyResult', data);
+    setStatusMessage('History synced.');
+    return data;
   };
 
   const loadLeaderboard = async () => {
-    setLoading(true);
-    setError('');
-    setStatus('Loading leaderboard...');
-    try {
-      const selectedRoundId = submitForm.gameRoundId !== ''
-        ? Number(submitForm.gameRoundId)
-        : (solveResult?.gameRoundId || undefined);
-      const data = await fetchSixteenQueensLeaderboard(10, selectedRoundId);
-      setLeaderboardResult(data);
-      setStatus(`Leaderboard loaded${data?.roundId ? ` for round ${data.roundId}` : ''}.`);
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Leaderboard load failed';
-      setError(message);
-      setStatus('Leaderboard failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetRecognized = async () => {
-    const selectedRoundId = submitForm.gameRoundId !== ''
-      ? Number(submitForm.gameRoundId)
-      : (solveResult?.gameRoundId || undefined);
-
-    if (!window.confirm(`Reset recognized solutions${selectedRoundId ? ` for round ${selectedRoundId}` : ''}?`)) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setStatus('Resetting recognized solutions...');
-    try {
-      const data = await resetSixteenQueensRecognized(selectedRoundId);
-      setStatus(data?.message || 'Recognized solutions reset.');
-      setSubmitResult(null);
-      setLeaderboardResult(null);
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Reset failed';
-      setError(message);
-      setStatus('Reset failed');
-    } finally {
-      setLoading(false);
-    }
+    const data = await fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT);
+    setApiData('leaderboardResult', data);
+    setStatusMessage('Leaderboard synced.');
+    return data;
   };
 
   const loadReport = async () => {
-    setLoading(true);
-    setError('');
-    setStatus('Loading report summary...');
-    try {
-      const data = await fetchSixteenQueensReport();
-      setReportResult(data);
-      setStatus('Report loaded.');
-    } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Report load failed';
-      setError(message);
-      setStatus('Report failed');
-    } finally {
-      setLoading(false);
-    }
+    const data = await fetchSixteenQueensReport();
+    setApiData('reportResult', data);
+    setStatusMessage('Report synced.');
+    return data;
   };
 
+  const handleLoadSample = async () => {
+    await withLoading('Loading sample solution...', async () => {
+      const selectedRoundId = submitForm.gameRoundId ? Number(submitForm.gameRoundId) : solveResult?.gameRoundId;
+
+      let nextSamples = sampleSolutions;
+      if (!nextSamples?.length && selectedRoundId) {
+        const response = await fetchSixteenQueensSamples(selectedRoundId, SAMPLE_LIMIT, viewerRole);
+        if (response?.samplesVisible === false) {
+          pushToast({
+            tone: 'warning',
+            title: 'Sample hidden',
+            message: response?.message || 'Players can access samples only after round close.'
+          });
+          return;
+        }
+        nextSamples = response?.sampleSolutions || [];
+        setApiData('sampleSolutions', nextSamples);
+      }
+
+      setApiData('selectedSampleIndex', 0);
+
+      const parsed = parseAnswerString(nextSamples?.[0], size);
+      if (!parsed) {
+        pushToast({ tone: 'warning', title: 'No sample', message: 'Run solver first to generate sample solutions.' });
+        return;
+      }
+
+      loadBoard(parsed);
+      setStatusMessage('Sample loaded to board.');
+      pushToast({ tone: 'info', title: 'Sample loaded', message: 'A known valid arrangement is now on the board.' });
+    });
+  };
+
+  const handleCloseRound = async () => {
+    if (viewerRole === 'PLAYER') {
+      pushToast({ tone: 'warning', title: 'Permission denied', message: 'Only admin can close puzzle rounds.' });
+      return;
+    }
+
+    await withLoading('Closing round...', async () => {
+      const selectedRoundId = submitForm.gameRoundId ? Number(submitForm.gameRoundId) : solveResult?.gameRoundId;
+      if (!selectedRoundId) {
+        throw new Error('Select a round or run solver before closing a round.');
+      }
+      await closeSixteenQueensRound(selectedRoundId);
+      setRoundClosed(true);
+      pushToast({ tone: 'success', title: 'Round closed', message: `Round ${selectedRoundId} is now closed for play.` });
+    });
+  };
+
+  const handleRefreshDashboards = async () => {
+    await withLoading('Refreshing dashboards...', async () => {
+      await Promise.all([loadHistory(), loadLeaderboard(), loadReport()]);
+      pushToast({ tone: 'info', title: 'Dashboard refreshed', message: 'History, leaderboard, and report are up to date.' });
+    });
+  };
+
+  const handleResetRecognized = async () => {
+    await withLoading('Resetting recognized solutions...', async () => {
+      const selectedRoundId = submitForm.gameRoundId ? Number(submitForm.gameRoundId) : solveResult?.gameRoundId;
+      await resetSixteenQueensRecognized(selectedRoundId);
+      setApiData('gameState', 'playing');
+      setCelebration(null);
+      pushToast({ tone: 'success', title: 'Recognized reset', message: 'Recognition state reset for the selected round.' });
+      await Promise.all([loadLeaderboard(), loadReport()]);
+    });
+  };
+
+  const sampleSolutionsPanel = sampleSolutions?.length > 0 && (
+    <section className="sample-solutions-panel">
+      <h3>Sample Solution Types ({sampleSolutions.length})</h3>
+      <p>Admin solve generated these patterns. Click a pattern to display it on the board.</p>
+      <div className="sample-solutions-grid">
+        {sampleSolutions.map((sample, index) => {
+          const previewColumns = parseAnswerString(sample, size);
+
+          return (
+            <button
+              type="button"
+              key={`sample-${index}`}
+              className={`sample-chip ${selectedSampleIndex === index ? 'active' : ''}`}
+              onClick={() => handleSelectSample(index)}
+              title={sample}
+            >
+              <div className="sample-chip-content">
+                <div className="sample-mini-board" aria-hidden="true">
+                  {Array.from({ length: size }).map((_, row) => (
+                    Array.from({ length: size }).map((__, col) => {
+                      const hasQueen = previewColumns?.[row] === col;
+                      const isDark = (row + col) % 2 === 1;
+
+                      return (
+                        <span
+                          key={`mini-${index}-${row}-${col}`}
+                          className={`mini-cell ${isDark ? 'dark' : 'light'} ${hasQueen ? 'queen' : ''}`}
+                        />
+                      );
+                    })
+                  ))}
+                </div>
+
+                <div className="sample-chip-text">
+                  <span>Pattern {index + 1}</span>
+                  <small>{sample}</small>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   return (
-    <main className="shell">
-      <section className="hero">
+    <main className={`queens-shell ${gameState}`}>
+      <ToastStack toasts={toasts} onDismiss={removeToast} />
+
+      <header className="queens-hero">
         <div>
-          <button
-            className="back-button"
-            onClick={() => navigate('/')}
-            title="Back to dashboard"
-          >
-            ← Dashboard
-          </button>
-          <p className="eyebrow">Sixteen Queens' Puzzle</p>
-          <h1>Sixteen Queens' Puzzle</h1>
-          <p className="subtitle">
-            Place 16 queens on a 16x16 board so no two queens attack each other.
-            Solve uses bitmask backtracking algorithm with optional parallelization.
+          <button className="ghost-action" onClick={() => navigate('/')}>Back to dashboard</button>
+          <p className="eyebrow">Sixteen Queens Experience</p>
+          <h1>Interactive 16x16 Queen Arena</h1>
+          <p className="hero-copy">
+            Build a conflict-free queen layout with instant visual validation, then race the global leaderboard.
           </p>
         </div>
-        <div className="status-card">
-          <span>Status</span>
-          <strong>{status}</strong>
-        </div>
-      </section>
 
-      <section className="grid-layout">
-        <article className="panel">
-          <h2>Run Solver</h2>
-          <p className="info-chip">Board Size: 16 x 16 (fixed)</p>
-          <form onSubmit={handleSolve} className="form-grid">
+        <div className="status-card">
+          <span>Live State</span>
+          <strong>{statusMessage}</strong>
+          <small>
+            {boardStatus === 'valid' ? '✔ Board ready' : boardStatus === 'conflict' ? '✖ Conflict detected' : '... Place 16 queens'}
+          </small>
+        </div>
+      </header>
+
+      <section className="queens-grid">
+        <article className="panel board-panel">
+          <div className="panel-header-inline">
+            <h2>Chessboard</h2>
+            <div className="chip-row">
+              <span className="info-chip">Queens: {analysis.queensPlaced}/{size}</span>
+              <span className={`info-chip ${roundClosed ? 'ok' : 'warn'}`}>Round: {roundClosed ? 'Closed' : 'Active'}</span>
+            </div>
+          </div>
+
+          <ChessBoard
+            size={size}
+            board={board}
+            analysis={analysis}
+            hoverCell={hoverCell}
+            onHoverCell={setHoverCell}
+            onCellClick={handleCellClick}
+            invalidMoveCellKey={invalidMoveCellKey}
+            lastMoveCellKey={lastMoveCellKey}
+          />
+
+          <p className={`board-state-text ${boardStatus === 'conflict' ? 'danger' : boardStatus === 'valid' ? 'good' : ''}`}>
+            {boardStatus === 'incomplete' && 'Place one queen in each row. Hover any tile to preview conflicts.'}
+            {boardStatus === 'conflict' && 'Conflicts highlighted in red lanes and diagonal danger glow.'}
+            {boardStatus === 'valid' && 'Perfect board. Submit to verify whether this is a new unique solution.'}
+          </p>
+
+          <div className="board-actions">
+            <button className="secondary" type="button" onClick={clearBoard} disabled={loading}>Clear board</button>
+            <button className="secondary" type="button" onClick={handleLoadSample} disabled={loading}>Load sample patterns</button>
+            <button type="button" onClick={handleRefreshDashboards} disabled={loading}>Refresh dashboards</button>
+          </div>
+
+          {!showSamplesInControls && sampleSolutionsPanel}
+        </article>
+
+        <article className="panel control-panel">
+          <h2>Round Controls</h2>
+          {showSamplesInControls && sampleSolutionsPanel}
+          <form className="form-grid" onSubmit={handleSolve}>
             <label>
-              Viewer Role
-              <select
-                value={viewerRole}
-                onChange={(e) => setViewerRole(e.target.value)}
-              >
+              Viewer role
+              <select value={viewerRole} onChange={(event) => setViewerRole(event.target.value)}>
                 <option value="PLAYER">Player</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </label>
+
             <label>
-              Thread Count
+              Thread count
               <input
                 type="number"
                 min="1"
                 max="64"
-                value={solveForm.threadCount}
-                onChange={(e) => setSolveForm({ ...solveForm, threadCount: e.target.value })}
+                value={solveConfig.threadCount}
+                onChange={(event) => updateSolveConfig({ threadCount: event.target.value })}
               />
             </label>
+
             <label>
-              Sample Limit
+              Sample limit
               <input
                 type="number"
                 min="1"
                 max="500"
-                value={solveForm.solutionSampleLimit}
-                onChange={(e) => setSolveForm({ ...solveForm, solutionSampleLimit: e.target.value })}
+                value={solveConfig.solutionSampleLimit}
+                onChange={(event) => updateSolveConfig({ solutionSampleLimit: event.target.value })}
               />
             </label>
+
             <label>
-              Persist Top N
+              Persist top N
               <input
                 type="number"
-                min="0"
+                min="1"
                 max="5000"
-                value={solveForm.persistSolutionLimit}
-                onChange={(e) => setSolveForm({ ...solveForm, persistSolutionLimit: e.target.value })}
+                value={solveConfig.persistSolutionLimit}
+                onChange={(event) => updateSolveConfig({ persistSolutionLimit: event.target.value })}
               />
             </label>
-            <button type="submit" disabled={loading}>Solve & Save</button>
-          </form>
-          {solveResult && <ResultBox title="Solve Result" data={solveResult} />}
-        </article>
 
-        <article className="panel">
-          <h2>Submit Answer</h2>
-          <form onSubmit={handleSubmit} className="form-grid">
+            <button type="submit" className="full-width" disabled={loading}>Run solver</button>
+          </form>
+
+          <form className="form-grid" onSubmit={handleSubmit}>
             <label>
-              Player Name
+              Player name
               <input
                 value={submitForm.playerName}
-                onChange={(e) => setSubmitForm({ ...submitForm, playerName: e.target.value })}
-                placeholder="Sandamini"
+                onChange={(event) => updateSubmitForm({ playerName: event.target.value })}
+                placeholder="Player alias"
               />
             </label>
+
             <label>
-              Game Round ID
+              Round ID
               <input
                 type="number"
                 value={submitForm.gameRoundId}
-                onChange={(e) => setSubmitForm({ ...submitForm, gameRoundId: e.target.value })}
+                onChange={(event) => updateSubmitForm({ gameRoundId: event.target.value })}
                 placeholder="optional"
               />
             </label>
-            <label>
-              Board Size
-              <input value="16 x 16 (fixed)" readOnly />
-            </label>
+
             <label className="full-width">
-              Answer from Grid
-              <input value={answerFromGrid || 'Place one queen in each row'} readOnly />
+              Board signature
+              <input readOnly value={answerFromGrid || 'Incomplete board'} />
             </label>
-            <button type="submit" disabled={loading || !canSubmit}>Submit</button>
+
+            <button className="full-width" type="submit" disabled={loading || !canSubmit}>Submit arrangement</button>
           </form>
 
-          <div className="board-actions">
-            <button type="button" onClick={clearGrid} disabled={loading}>Clear Grid</button>
-            <button type="button" onClick={loadSampleToGrid} disabled={loading}>Load Sample to Grid</button>
+          <div className="control-actions">
+            <button type="button" className="secondary" onClick={handleCloseRound} disabled={loading}>Close round</button>
+            <button type="button" className="secondary" onClick={handleResetRecognized} disabled={loading}>Reset recognized</button>
           </div>
 
-          <p className="grid-hint">
-            Sample visibility policy: Admin can always load samples. Players can load samples only after round close.
-            Current round status: {isRoundClosed ? 'Closed' : 'Active'}.
-          </p>
+          {solveResult && (
+            <div className="solve-summary">
+              <h3>Latest solve run</h3>
+              <ul>
+                <li>Round ID: {solveResult.gameRoundId}</li>
+                <li>Sequential time: {solveResult.sequentialTimeMs} ms</li>
+                <li>Threaded time: {solveResult.parallelTimeMs} ms</li>
+                <li>Speedup: {Number(solveResult.speedup || 0).toFixed(2)}x</li>
+              </ul>
+            </div>
+          )}
 
-          <div className="grid-board" role="grid" aria-label="Sixteen queens board">
-            {Array.from({ length: BOARD_SIZE }).map((_, row) => (
-              <div key={`row-${row}`} className="grid-row" role="row">
-                {Array.from({ length: BOARD_SIZE }).map((__, col) => {
-                  const selected = queenColumns[row] === col;
-                  const dark = (row + col) % 2 === 1;
-                  return (
-                    <button
-                      type="button"
-                      key={`cell-${row}-${col}`}
-                      className={`grid-cell ${dark ? 'dark' : 'light'} ${selected ? 'selected' : ''}`}
-                      onClick={() => toggleQueen(row, col)}
-                      title={`Row ${row + 1}, Column ${col + 1}`}
-                      aria-label={`row ${row + 1}, column ${col + 1}${selected ? ', queen selected' : ''}`}
-                    >
-                      {selected ? 'Q' : ''}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          {submitResult && (
+            <div className={`submit-summary ${submitResult.correct ? (submitResult.alreadyRecognized ? 'duplicate' : 'success') : 'error'}`}>
+              <h3>Submission result</h3>
+              <p>{submitResult.message}</p>
+            </div>
+          )}
 
-          <p className={`grid-hint ${conflicts.length > 0 ? 'warn' : ''}`}>
-            {conflicts.length > 0
-              ? `Grid has ${conflicts.length} conflict(s). Adjust queen positions before submit.`
-              : answerFromGrid
-                ? 'Grid is conflict-free and ready to submit.'
-                : 'Place exactly one queen per row to build your answer.'}
-          </p>
-
-          {submitResult && <ResultBox title="Submission Result" data={submitResult} />}
+          {errorMessage && <p className="error-banner">{errorMessage}</p>}
         </article>
       </section>
 
-      <section className="actions-row">
-        <button onClick={loadHistory} disabled={loading}>Load History</button>
-        <button onClick={loadLeaderboard} disabled={loading}>Load Leaderboard</button>
-        <button onClick={loadReport} disabled={loading}>Load Report</button>
-        <button onClick={handleCloseRound} disabled={loading || viewerRole === 'PLAYER'}>Close Round</button>
-        <button onClick={handleResetRecognized} disabled={loading}>Reset Recognized</button>
-      </section>
-
-      <section className="grid-layout three-cols">
-        <article className="panel">
-          <h2>History</h2>
-          <DataList data={historyResult} emptyLabel="No history loaded yet." />
-        </article>
+      <section className="dashboard-layout">
         <article className="panel">
           <h2>Leaderboard</h2>
-          <DataList data={leaderboardResult} emptyLabel="No leaderboard loaded yet." />
+          <LeaderboardTable leaderboardResult={leaderboardResult} />
         </article>
+
         <article className="panel">
-          <h2>Report</h2>
-          <DataList data={reportResult} emptyLabel="No report loaded yet." />
+          <h2>History Timeline</h2>
+          <HistoryTimeline historyResult={historyResult} />
+        </article>
+
+        <article className="panel">
+          <h2>Reports Dashboard</h2>
+          <ReportsDashboard
+            reportResult={reportResult}
+            historyResult={historyResult}
+            leaderboardResult={leaderboardResult}
+          />
         </article>
       </section>
 
-      {showWinPopup && (
-        <div className="celebration-overlay" role="dialog" aria-modal="true" aria-label="Winning celebration">
-          <div className="emoji-rain" aria-hidden="true">
-            {['🎉', '✨', '🥳', '🎊', '👑', '🎉'].map((emoji, idx) => (
-              <span key={`${emoji}-${idx}`} style={{ left: `${12 + idx * 14}%`, animationDelay: `${idx * 0.2}s` }}>
-                {emoji}
-              </span>
-            ))}
-          </div>
-          <div className="celebration-modal">
-            <p className="celebration-burst">🎉 👑 ✨ 🎉</p>
-            <h3>Congratulations, {submitForm.playerName.trim() || 'Player'}!</h3>
-            <p>You solved Sixteen Queens' Puzzle correctly.</p>
-            <button type="button" onClick={() => setShowWinPopup(false)}>Continue Playing</button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {celebration === 'confetti' && (
+          <motion.div className="celebration-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="confetti-field" aria-hidden="true">
+              {Array.from({ length: 42 }).map((_, index) => (
+                <span key={`confetti-${index}`} style={{ left: `${(index * 9) % 100}%`, animationDelay: `${(index % 12) * 0.1}s` }} />
+              ))}
+            </div>
+            <div className="celebration-modal">
+              <h3>You found a unique solution!</h3>
+              <p>The board is valid and newly recognized in this round.</p>
+              <button type="button" onClick={() => setCelebration(null)}>Continue</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {error && <p className="error-banner">{error}</p>}
+      <AnimatePresence>
+        {celebration === 'fireworks' && (
+          <motion.div className="celebration-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="fireworks-field" aria-hidden="true">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <span key={`fireworks-${idx}`} style={{ left: `${16 + idx * 17}%`, animationDelay: `${idx * 0.25}s` }} />
+              ))}
+            </div>
+            <div className="celebration-modal">
+              <h3>All solutions completed</h3>
+              <p>Every persisted solution has been recognized. Reset when you want a new challenge cycle.</p>
+              <button type="button" onClick={() => setCelebration(null)}>Close</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
-}
-
-function ResultBox({ title, data }) {
-  return (
-    <div className="result-box">
-      <h3>{title}</h3>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-  );
-}
-
-function DataList({ data, emptyLabel }) {
-  if (!data) {
-    return <p className="empty-state">{emptyLabel}</p>;
-  }
-
-  return <pre className="data-block">{JSON.stringify(data, null, 2)}</pre>;
 }
 
 export default SixteenQueensPage;
