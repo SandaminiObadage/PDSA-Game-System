@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 const GAMES = [
   {
     id: 'sixteen-queens',
-    name: 'Sixteen Queens',
+    name: 'Sixteen Queens\' Puzzle',
     description: 'Place 16 queens on a 16x16 board so they don\'t attack each other. Uses backtracking algorithm.',
     icon: '👑',
     color: '#3b82f6'

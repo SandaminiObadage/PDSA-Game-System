@@ -200,6 +200,13 @@ public class SixteenQueensRepository {
         );
     }
 
+    public int insertAlgorithmSolutionAnswerIfMissing(long gameRoundId, String algorithmName, String solutionHash, String solutionJson) {
+        return jdbcTemplate.update(
+                "INSERT OR IGNORE INTO algorithm_solution_answers (game_round_id, algorithm_name, solution_hash, solution_json) VALUES (?, ?, ?, ?)",
+                gameRoundId, algorithmName, solutionHash, solutionJson
+        );
+    }
+
     public long countKnownSolutions(long gameTypeId) {
         Long count = jdbcTemplate.query(
                 "SELECT COUNT(*) AS cnt FROM recognized_solutions WHERE game_type_id = ?",

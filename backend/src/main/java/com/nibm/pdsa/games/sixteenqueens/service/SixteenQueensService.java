@@ -48,7 +48,7 @@ public class SixteenQueensService {
 
         int effectiveCollectionLimit = Math.max(sampleLimit, persistSolutionLimit);
         QueensSolveResult sequential = solver.solveSequential(boardSize, effectiveCollectionLimit);
-        QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, sampleLimit);
+        QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, effectiveCollectionLimit);
 
         SolveComparisonResponse response = new SolveComparisonResponse();
         response.setBoardSize(boardSize);
@@ -83,8 +83,11 @@ public class SixteenQueensService {
                 "{\"solutionCount\":" + parallel.getSolutionCount() + ",\"threadCount\":" + threadCount + "}"
             );
 
-            int persisted = persistKnownSolutions(gameTypeId, gameRoundId, collectedSolutions, persistSolutionLimit);
-            response.setPersistedSolutionCount(persisted);
+            int sequentialPersisted = persistKnownSolutions(gameTypeId, gameRoundId, collectedSolutions, persistSolutionLimit, "SEQUENTIAL_BACKTRACKING");
+            int parallelPersisted = persistKnownSolutions(gameTypeId, gameRoundId, parallel.getSampleSolutions(), persistSolutionLimit, "THREADED_SEARCH");
+            response.setSequentialPersistedSolutionCount(sequentialPersisted);
+            response.setParallelPersistedSolutionCount(parallelPersisted);
+            response.setPersistedSolutionCount(sequentialPersisted + parallelPersisted);
 
             boolean samplesVisible = canViewSamplesForRound(gameRoundId, normalizedViewerRole);
             response.setSamplesVisible(samplesVisible);
@@ -322,18 +325,20 @@ public class SixteenQueensService {
         return id;
     }
 
-    private int persistKnownSolutions(long gameTypeId, long gameRoundId, List<String> solutions, int persistSolutionLimit) {
+    private int persistKnownSolutions(long gameTypeId, long gameRoundId, List<String> solutions, int persistSolutionLimit, String algorithmName) {
         if (persistSolutionLimit <= 0 || solutions.isEmpty()) {
             return 0;
         }
 
         int target = Math.min(persistSolutionLimit, solutions.size());
-        int inserted = 0;
+        int insertedAnswerRows = 0;
         for (int i = 0; i < target; i++) {
             String solution = solutions.get(i);
-            inserted += repository.insertKnownSolutionIfMissing(gameTypeId, scopeSolutionHash(gameRoundId, solution), solution);
+            String roundScopedHash = scopeSolutionHash(gameRoundId, solution);
+            repository.insertKnownSolutionIfMissing(gameTypeId, roundScopedHash, solution);
+            insertedAnswerRows += repository.insertAlgorithmSolutionAnswerIfMissing(gameRoundId, algorithmName, sha256(solution), solution);
         }
-        return inserted;
+        return insertedAnswerRows;
     }
 
     private String scopeSolutionHash(long gameRoundId, String solution) {
