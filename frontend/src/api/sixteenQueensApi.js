@@ -23,12 +23,19 @@ export async function fetchSixteenQueensHistory(limit = 10) {
   return response.data;
 }
 
-export async function fetchSixteenQueensLeaderboard(limit = 10) {
-  const response = await client.get(`/leaderboard?limit=${limit}`);
+export async function fetchSixteenQueensLeaderboard(limit = 10, roundId) {
+  const query = roundId ? `/leaderboard?limit=${limit}&roundId=${roundId}` : `/leaderboard?limit=${limit}`;
+  const response = await client.get(query);
   return response.data;
 }
 
 export async function fetchSixteenQueensReport() {
   const response = await client.get('/report');
+  return response.data;
+}
+
+export async function resetSixteenQueensRecognized(roundId) {
+  const query = roundId ? `/reset-recognized?roundId=${roundId}` : '/reset-recognized';
+  const response = await client.post(query);
   return response.data;
 }

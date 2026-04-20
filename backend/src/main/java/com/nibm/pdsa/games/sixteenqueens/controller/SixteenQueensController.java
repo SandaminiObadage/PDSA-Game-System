@@ -1,6 +1,7 @@
 package com.nibm.pdsa.games.sixteenqueens.controller;
 
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.ResetRecognizedResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
@@ -47,8 +48,16 @@ public class SixteenQueensController {
     }
 
     @GetMapping("/leaderboard")
-    public SixteenQueensLeaderboardResponse leaderboard(@RequestParam(defaultValue = "10") int limit) {
-        return sixteenQueensService.getLeaderboard(limit);
+    public SixteenQueensLeaderboardResponse leaderboard(
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long roundId
+    ) {
+        return sixteenQueensService.getLeaderboard(limit, roundId);
+    }
+
+    @PostMapping("/reset-recognized")
+    public ResetRecognizedResponse resetRecognized(@RequestParam(required = false) Long roundId) {
+        return sixteenQueensService.resetRecognizedSolutions(roundId);
     }
 
     @GetMapping("/report")

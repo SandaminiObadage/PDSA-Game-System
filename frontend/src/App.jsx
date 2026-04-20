@@ -3,6 +3,7 @@ import {
   fetchSixteenQueensHistory,
   fetchSixteenQueensLeaderboard,
   fetchSixteenQueensReport,
+  resetSixteenQueensRecognized,
   solveSixteenQueens,
   submitSixteenQueens
 } from './api/sixteenQueensApi';
@@ -113,13 +114,42 @@ function App() {
     setError('');
     setStatus('Loading leaderboard...');
     try {
-      const data = await fetchSixteenQueensLeaderboard(10);
+      const selectedRoundId = submitForm.gameRoundId !== ''
+        ? Number(submitForm.gameRoundId)
+        : (solveResult?.gameRoundId || undefined);
+      const data = await fetchSixteenQueensLeaderboard(10, selectedRoundId);
       setLeaderboardResult(data);
-      setStatus('Leaderboard loaded.');
+      setStatus(`Leaderboard loaded${data?.roundId ? ` for round ${data.roundId}` : ''}.`);
     } catch (requestError) {
       const message = requestError?.response?.data?.message || requestError.message || 'Leaderboard load failed';
       setError(message);
       setStatus('Leaderboard failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetRecognized = async () => {
+    const selectedRoundId = submitForm.gameRoundId !== ''
+      ? Number(submitForm.gameRoundId)
+      : (solveResult?.gameRoundId || undefined);
+
+    if (!window.confirm(`Reset recognized solutions${selectedRoundId ? ` for round ${selectedRoundId}` : ''}?`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setStatus('Resetting recognized solutions...');
+    try {
+      const data = await resetSixteenQueensRecognized(selectedRoundId);
+      setStatus(data?.message || 'Recognized solutions reset.');
+      setSubmitResult(null);
+      setLeaderboardResult(null);
+    } catch (requestError) {
+      const message = requestError?.response?.data?.message || requestError.message || 'Reset failed';
+      setError(message);
+      setStatus('Reset failed');
     } finally {
       setLoading(false);
     }
@@ -255,6 +285,7 @@ function App() {
         <button onClick={loadHistory} disabled={loading}>Load History</button>
         <button onClick={loadLeaderboard} disabled={loading}>Load Leaderboard</button>
         <button onClick={loadReport} disabled={loading}>Load Report</button>
+        <button onClick={handleResetRecognized} disabled={loading}>Reset Recognized</button>
       </section>
 
       <section className="grid-layout three-cols">
