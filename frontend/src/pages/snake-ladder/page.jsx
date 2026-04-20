@@ -159,7 +159,7 @@ function SnakeLadderPage() {
         <section className="panel">
           <h2>Generate Board</h2>
           <div className="form-group">
-            <label>Board Size (6-12):</label>
+            <label>Select Board Size (6-12):</label>
             <input
               type="number"
               min="6"
@@ -186,6 +186,11 @@ function SnakeLadderPage() {
 
       {solveResult && (
         <section className="panel">
+
+          <div className="form-group">
+            <h2>Your Name: {submitForm.playerName}</h2>
+          </div>
+
           <h2>Choose the Minimum Throws</h2>
           <div className="choices">
             {solveResult.choices.map((choice, index) => (
@@ -198,14 +203,6 @@ function SnakeLadderPage() {
               </button>
             ))}
           </div>
-          <div className="form-group">
-            <label>Your Name:</label>
-            <input
-              type="text"
-              value={submitForm.playerName}
-              onChange={(e) => setSubmitForm(prev => ({ ...prev, playerName: e.target.value }))}
-            />
-          </div>
           <button onClick={handleSubmit} disabled={loading || !submitForm.playerName.trim() || !submitForm.answer}>
             Submit Answer
           </button>
@@ -215,8 +212,7 @@ function SnakeLadderPage() {
       {submitResult && (
         <section className="panel">
           <div>
-            <h2>{submitResult.isCorrect ? 'Correct!' : 'Incorrect'}</h2>
-            <p>{submitResult.message}</p>
+            <h2>{submitResult.message}</h2>
             {!submitResult.isCorrect && <p>Correct answer: {submitResult.correctAnswer}</p>}
           </div>
         </section>

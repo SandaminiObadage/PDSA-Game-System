@@ -592,7 +592,7 @@ pre {
 
 /* Welcome Message */
 .welcome-message {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(180deg, #173968 0%, #244da7 100%);
   color: white;
   padding: 15px 20px;
   border-radius: 8px;
