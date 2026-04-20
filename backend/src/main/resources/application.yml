@@ -2,7 +2,7 @@ spring:
   application:
     name: pdsa-backend
   datasource:
-    url: jdbc:sqlite:../database/pdsa_game_system.db
+    url: jdbc:sqlite:D:/pd/database/pdsa_game_system.db
     driver-class-name: org.sqlite.JDBC
   sql:
     init:
