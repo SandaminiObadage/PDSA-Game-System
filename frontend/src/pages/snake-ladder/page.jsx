@@ -315,7 +315,7 @@ function SnakeLadderPage() {
         </div>
       )}
       <style>{`
-        .modal-overlay {
+       .modal-overlay {
           position: fixed;
           inset: 0;
           background: rgba(15, 23, 42, 0.72);
@@ -324,13 +324,16 @@ function SnakeLadderPage() {
           align-items: center;
           justify-content: center;
           z-index: 50;
-          padding: 24px;
+          padding: 16px;
         }
 
         .modal-content {
-          width: min(100%, 920px);
-          max-height: min(100%, 88vh);
+          width: 75vw;              /* 3/4 of screen width */
+          height: 75vh;             /* 3/4 of screen height */
+          max-width: 1200px;        /* optional limit for large screens */
+          max-height: 90vh;
           overflow-y: auto;
+
           background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(243, 246, 255, 0.96) 100%);
           border: 1px solid rgba(255, 255, 255, 0.8);
           border-radius: 24px;
