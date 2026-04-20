@@ -3,6 +3,7 @@ package com.nibm.pdsa.games.sixteenqueens.service;
 import com.nibm.pdsa.common.exception.BadRequestException;
 import com.nibm.pdsa.games.sixteenqueens.algorithm.BitmaskBacktrackingSolver;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.ResetRecognizedResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
@@ -71,7 +72,7 @@ public class SixteenQueensService {
                 "{\"solutionCount\":" + parallel.getSolutionCount() + ",\"threadCount\":" + threadCount + "}"
             );
 
-            int persisted = persistKnownSolutions(gameTypeId, collectedSolutions, persistSolutionLimit);
+            int persisted = persistKnownSolutions(gameTypeId, gameRoundId, collectedSolutions, persistSolutionLimit);
             response.setPersistedSolutionCount(persisted);
 
             response.setGameRoundId(gameRoundId);
@@ -100,7 +101,6 @@ public class SixteenQueensService {
 
         boolean correct = solver.isValidSolution(boardSize, positions);
         String canonical = request.getAnswer().replaceAll("\\s+", "");
-        String solutionHash = sha256(canonical);
 
         SubmitAnswerResponse response = new SubmitAnswerResponse();
         response.setPlayerName(request.getPlayerName());
@@ -125,6 +125,8 @@ public class SixteenQueensService {
                 return response;
             }
 
+            String solutionHash = scopeSolutionHash(gameRoundId, canonical);
+
             if (repository.isActiveRecognized(gameTypeId, solutionHash)) {
                 response.setAlreadyRecognized(true);
                 response.setMessage("Correct, but this solution has already been recognized. Try a new one.");
@@ -135,9 +137,9 @@ public class SixteenQueensService {
 
             Long expectedTotal = repository.getExpectedTotalSolutionsForRound(gameRoundId);
             if (expectedTotal != null && expectedTotal > 0) {
-                long activeCount = repository.countActiveRecognized(gameTypeId);
+                long activeCount = repository.countActiveRecognizedForRound(gameTypeId, gameRoundId);
                 if (activeCount >= expectedTotal) {
-                    repository.clearActiveRecognized(gameTypeId);
+                    repository.clearActiveRecognizedForRound(gameTypeId, gameRoundId);
                 }
             }
 
@@ -178,16 +180,44 @@ public class SixteenQueensService {
         return response;
     }
 
-    public SixteenQueensLeaderboardResponse getLeaderboard(int limit) {
+    public SixteenQueensLeaderboardResponse getLeaderboard(int limit, Long gameRoundId) {
         if (repository == null) {
             throw new BadRequestException("Database leaderboard is not available in in-memory mode.");
         }
 
         long gameTypeId = getGameTypeId();
+        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
         SixteenQueensLeaderboardResponse response = new SixteenQueensLeaderboardResponse();
         response.setGameTypeId(gameTypeId);
         response.setGameCode(GAME_CODE);
-        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit));
+        response.setRoundId(effectiveRoundId);
+        if (effectiveRoundId == null) {
+            response.setLeaderboard(List.of());
+            return response;
+        }
+
+        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit, effectiveRoundId));
+        return response;
+    }
+
+    public ResetRecognizedResponse resetRecognizedSolutions(Long gameRoundId) {
+        if (repository == null) {
+            throw new BadRequestException("Database reset is not available in in-memory mode.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
+        if (effectiveRoundId == null) {
+            throw new BadRequestException("No game round exists yet. Run solve first.");
+        }
+
+        int cleared = repository.clearActiveRecognizedForRound(gameTypeId, effectiveRoundId);
+        ResetRecognizedResponse response = new ResetRecognizedResponse();
+        response.setGameTypeId(gameTypeId);
+        response.setGameCode(GAME_CODE);
+        response.setGameRoundId(effectiveRoundId);
+        response.setClearedCount(cleared);
+        response.setMessage("Recognized solutions reset for round " + effectiveRoundId + ".");
         return response;
     }
 
@@ -211,7 +241,7 @@ public class SixteenQueensService {
         return id;
     }
 
-    private int persistKnownSolutions(long gameTypeId, List<String> solutions, int persistSolutionLimit) {
+    private int persistKnownSolutions(long gameTypeId, long gameRoundId, List<String> solutions, int persistSolutionLimit) {
         if (persistSolutionLimit <= 0 || solutions.isEmpty()) {
             return 0;
         }
@@ -220,9 +250,13 @@ public class SixteenQueensService {
         int inserted = 0;
         for (int i = 0; i < target; i++) {
             String solution = solutions.get(i);
-            inserted += repository.insertKnownSolutionIfMissing(gameTypeId, sha256(solution), solution);
+            inserted += repository.insertKnownSolutionIfMissing(gameTypeId, scopeSolutionHash(gameRoundId, solution), solution);
         }
         return inserted;
+    }
+
+    private String scopeSolutionHash(long gameRoundId, String solution) {
+        return gameRoundId + ":" + sha256(solution);
     }
 
     private String sha256(String value) {

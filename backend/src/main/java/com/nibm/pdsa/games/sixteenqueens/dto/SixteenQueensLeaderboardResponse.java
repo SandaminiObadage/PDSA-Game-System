@@ -6,6 +6,7 @@ public class SixteenQueensLeaderboardResponse {
 
     private long gameTypeId;
     private String gameCode;
+    private Long roundId;
     private List<LeaderboardEntry> leaderboard;
 
     public long getGameTypeId() {
@@ -22,6 +23,14 @@ public class SixteenQueensLeaderboardResponse {
 
     public void setGameCode(String gameCode) {
         this.gameCode = gameCode;
+    }
+
+    public Long getRoundId() {
+        return roundId;
+    }
+
+    public void setRoundId(Long roundId) {
+        this.roundId = roundId;
     }
 
     public List<LeaderboardEntry> getLeaderboard() {

@@ -229,7 +229,8 @@ public class SixteenQueensRepository {
         }, gameTypeId, limit);
     }
 
-    public List<LeaderboardEntry> findLeaderboard(long gameTypeId, int limit) {
+    public List<LeaderboardEntry> findLeaderboard(long gameTypeId, int limit, Long gameRoundId) {
+        String roundPrefix = gameRoundId == null ? null : gameRoundId + ":%";
         String sql = """
                 SELECT
                     p.id AS player_id,
@@ -239,13 +240,16 @@ public class SixteenQueensRepository {
                     (
                         SELECT COUNT(*)
                         FROM recognized_solutions rs
-                        WHERE rs.game_type_id = ? AND rs.recognized_by_player_id = p.id
+                        WHERE rs.game_type_id = ?
+                          AND rs.recognized_by_player_id = p.id
+                          AND (? IS NULL OR rs.solution_hash LIKE ?)
                     ) AS recognized_solution_count,
                     MAX(pa.submitted_at) AS last_submitted_at
                 FROM player_answers pa
                 JOIN players p ON p.id = pa.player_id
                 JOIN game_rounds gr ON gr.id = pa.game_round_id
                 WHERE gr.game_type_id = ?
+                  AND (? IS NULL OR gr.id = ?)
                 GROUP BY p.id, p.player_name
                 ORDER BY recognized_solution_count DESC, correct_answers DESC, total_answers ASC, last_submitted_at ASC
                 LIMIT ?
@@ -263,7 +267,25 @@ public class SixteenQueensRepository {
             item.setAccuracy(totalAnswers == 0 ? 0.0 : (double) correctAnswers / totalAnswers);
             item.setLastSubmittedAt(rs.getString("last_submitted_at"));
             return item;
-        }, gameTypeId, gameTypeId, limit);
+        }, gameTypeId, roundPrefix, roundPrefix, gameTypeId, gameRoundId, gameRoundId, limit);
+    }
+
+    public long countActiveRecognizedForRound(long gameTypeId, long gameRoundId) {
+        String prefix = gameRoundId + ":%";
+        Long count = jdbcTemplate.query(
+                "SELECT COUNT(*) AS cnt FROM recognized_solutions WHERE game_type_id = ? AND is_active = 1 AND solution_hash LIKE ?",
+                rs -> rs.next() ? rs.getLong("cnt") : 0L,
+                gameTypeId, prefix
+        );
+        return count == null ? 0L : count;
+    }
+
+    public int clearActiveRecognizedForRound(long gameTypeId, long gameRoundId) {
+        String prefix = gameRoundId + ":%";
+        return jdbcTemplate.update(
+                "UPDATE recognized_solutions SET is_active = 0 WHERE game_type_id = ? AND solution_hash LIKE ?",
+                gameTypeId, prefix
+        );
     }
 
     public SixteenQueensReportResponse getReport(long gameTypeId) {
