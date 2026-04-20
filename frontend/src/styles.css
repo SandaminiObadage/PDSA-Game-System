@@ -273,6 +273,71 @@ pre {
   color: #fecaca;
 }
 
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 13, 26, 0.76);
+  backdrop-filter: blur(3px);
+  z-index: 1200;
+}
+
+.celebration-modal {
+  position: relative;
+  width: min(460px, calc(100% - 32px));
+  padding: 26px;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.celebration-modal h3 {
+  margin: 0;
+  font-size: 30px;
+  color: #f8fbff;
+}
+
+.celebration-modal p {
+  margin: 10px 0 0;
+  color: #c9d8f6;
+}
+
+.celebration-burst {
+  font-size: 30px;
+  margin: 0 0 12px;
+}
+
+.emoji-rain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.emoji-rain span {
+  position: absolute;
+  top: -10%;
+  font-size: 32px;
+  animation: emoji-fall 1.8s linear infinite;
+}
+
+@keyframes emoji-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 /* Dashboard Styles */
 .games-grid {
   display: grid;
