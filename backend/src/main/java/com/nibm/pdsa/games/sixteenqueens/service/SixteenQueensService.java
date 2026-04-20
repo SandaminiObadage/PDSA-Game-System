@@ -59,7 +59,7 @@ public class SixteenQueensService {
         List<String> collectedSolutions = sequential.getSampleSolutions();
         List<String> sampleSolutions = collectedSolutions.stream().limit(sampleLimit).toList();
         response.setSampleSolutions(sampleSolutions);
-        response.setSamplesVisible(isTeacherRole(normalizedViewerRole));
+        response.setSamplesVisible(isAdminRole(normalizedViewerRole));
 
         if (repository != null) {
             long gameTypeId = getGameTypeId();
@@ -93,7 +93,7 @@ public class SixteenQueensService {
             response.setSamplesVisible(samplesVisible);
             response.setSampleSolutions(samplesVisible ? sampleSolutions : List.of());
             response.setGameRoundId(gameRoundId);
-        } else if (!isTeacherRole(normalizedViewerRole)) {
+        } else if (!isAdminRole(normalizedViewerRole)) {
             response.setSampleSolutions(List.of());
             response.setSamplesVisible(false);
         }
@@ -346,7 +346,7 @@ public class SixteenQueensService {
     }
 
     private boolean canViewSamplesForRound(long gameRoundId, String viewerRole) {
-        return isTeacherRole(viewerRole) || repository.isRoundClosed(gameRoundId);
+        return isAdminRole(viewerRole) || repository.isRoundClosed(gameRoundId);
     }
 
     private String normalizeViewerRole(String viewerRole) {
@@ -356,8 +356,8 @@ public class SixteenQueensService {
         return viewerRole.trim().toUpperCase();
     }
 
-    private boolean isTeacherRole(String viewerRole) {
-        return "ADMIN".equals(viewerRole) || "TEACHER".equals(viewerRole);
+    private boolean isAdminRole(String viewerRole) {
+        return "ADMIN".equals(viewerRole);
     }
 
     private String sha256(String value) {
