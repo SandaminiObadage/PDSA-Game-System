@@ -413,3 +413,88 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+/* Snake Ladder Styles */
+.snake-ladder-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #333;
+  margin: 20px 0;
+}
+
+.board-row {
+  display: flex;
+}
+
+.cell {
+  width: 50px;
+  height: 50px;
+  border: 1px solid #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: #f0f0f0;
+  color: #333;
+}
+
+.cell.start {
+  background: #4CAF50;
+  color: white;
+}
+
+.cell.end {
+  background: #f44336;
+  color: white;
+}
+
+.cell.ladder-start {
+  background: #2196F3;
+  color: white;
+}
+
+.cell.snake-head {
+  background: #FF9800;
+  color: white;
+}
+
+.choices {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.choices button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background: #ddd;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.choices button.selected {
+  background: #4CAF50;
+  color: white;
+}
+
+.result.success {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+.result.failure {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 20px 0;
+}
