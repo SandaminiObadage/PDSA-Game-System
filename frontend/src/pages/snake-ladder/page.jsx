@@ -158,7 +158,7 @@ function SnakeLadderPage() {
       <div className="grid-layout">
         <section className="panel">
           <h2>Generate Board</h2>
-          <div className="form-group">
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
             <label>Select Board Size (6-12):</label>
             <input
               type="number"
@@ -167,8 +167,8 @@ function SnakeLadderPage() {
               value={solveForm.boardSize}
               onChange={(e) => setSolveForm(prev => ({ ...prev, boardSize: parseInt(e.target.value, 10) || 6 }))}
             />
+            <button onClick={handleSolve} disabled={loading} style={{ width: 'auto' }}>Generate Board</button>
           </div>
-          <button onClick={handleSolve} disabled={loading}>Generate Board</button>
           {error && <p className="error-banner">{error}</p>}
         </section>
 
