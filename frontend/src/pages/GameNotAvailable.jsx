@@ -5,7 +5,7 @@ function GameNotAvailable() {
   const { gameId } = useParams();
 
   const gameNames = {
-    'sixteen-queens': 'Sixteen Queens',
+    'sixteen-queens': 'Sixteen Queens\' Puzzle',
     'knights-tour': 'Knights Tour',
     'minimum-cost': 'Minimum Cost Path',
     'snake-ladder': 'Snake & Ladder',
