@@ -214,7 +214,7 @@ function SnakeLadderPage() {
 
       {submitResult && (
         <section className="panel">
-          <div className={`result ${submitResult.isCorrect ? 'success' : 'failure'}`}>
+          <div>
             <h2>{submitResult.isCorrect ? 'Correct!' : 'Incorrect'}</h2>
             <p>{submitResult.message}</p>
             {!submitResult.isCorrect && <p>Correct answer: {submitResult.correctAnswer}</p>}
