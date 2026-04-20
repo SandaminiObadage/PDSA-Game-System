@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { solveSnakeLadder, submitSnakeLadder } from '../../api/snakeLadderApi';
 
 const defaultSolveForm = {
@@ -13,6 +13,7 @@ const defaultSubmitForm = {
 
 function SnakeLadderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [solveForm, setSolveForm] = useState(defaultSolveForm);
   const [submitForm, setSubmitForm] = useState(defaultSubmitForm);
   const [solveResult, setSolveResult] = useState(null);
@@ -20,6 +21,13 @@ function SnakeLadderPage() {
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const playerName = searchParams.get('player');
+    if (playerName) {
+      setSubmitForm(prev => ({ ...prev, playerName }));
+    }
+  }, [searchParams]);
 
   const handleSolve = async () => {
     if (solveForm.boardSize < 6 || solveForm.boardSize > 12) {
@@ -140,6 +148,12 @@ function SnakeLadderPage() {
           <strong>{status}</strong>
         </div>
       </section>
+
+      {submitForm.playerName && (
+        <section className="welcome-message">
+          <p>Welcome, <strong>{submitForm.playerName}</strong>! Ready to play Snake & Ladder?</p>
+        </section>
+      )}
 
       <div className="grid-layout">
         <section className="panel">
