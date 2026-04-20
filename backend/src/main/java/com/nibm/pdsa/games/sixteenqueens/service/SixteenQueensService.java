@@ -4,6 +4,8 @@ import com.nibm.pdsa.common.exception.BadRequestException;
 import com.nibm.pdsa.games.sixteenqueens.algorithm.BitmaskBacktrackingSolver;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.ResetRecognizedResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.RoundCloseResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.SampleSolutionsResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
@@ -37,14 +39,16 @@ public class SixteenQueensService {
         this.repository = repository;
     }
 
-    public SolveComparisonResponse runComparison(int boardSize, int threadCount, int sampleLimit, int persistSolutionLimit) {
+    public SolveComparisonResponse runComparison(int boardSize, int threadCount, int sampleLimit, int persistSolutionLimit, String viewerRole) {
         if (boardSize != FIXED_BOARD_SIZE) {
             throw new BadRequestException("Board size is fixed to 16 for this game.");
         }
 
+        String normalizedViewerRole = normalizeViewerRole(viewerRole);
+
         int effectiveCollectionLimit = Math.max(sampleLimit, persistSolutionLimit);
         QueensSolveResult sequential = solver.solveSequential(boardSize, effectiveCollectionLimit);
-        QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, sampleLimit);
+        QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, effectiveCollectionLimit);
 
         SolveComparisonResponse response = new SolveComparisonResponse();
         response.setBoardSize(boardSize);
@@ -53,7 +57,9 @@ public class SixteenQueensService {
         response.setSequentialTimeMs(sequential.getElapsedMs());
         response.setParallelTimeMs(parallel.getElapsedMs());
         List<String> collectedSolutions = sequential.getSampleSolutions();
-        response.setSampleSolutions(collectedSolutions.stream().limit(sampleLimit).toList());
+        List<String> sampleSolutions = collectedSolutions.stream().limit(sampleLimit).toList();
+        response.setSampleSolutions(sampleSolutions);
+        response.setSamplesVisible(isAdminRole(normalizedViewerRole));
 
         if (repository != null) {
             long gameTypeId = getGameTypeId();
@@ -77,10 +83,19 @@ public class SixteenQueensService {
                 "{\"solutionCount\":" + parallel.getSolutionCount() + ",\"threadCount\":" + threadCount + "}"
             );
 
-            int persisted = persistKnownSolutions(gameTypeId, gameRoundId, collectedSolutions, persistSolutionLimit);
-            response.setPersistedSolutionCount(persisted);
+            int sequentialPersisted = persistKnownSolutions(gameTypeId, gameRoundId, collectedSolutions, persistSolutionLimit, "SEQUENTIAL_BACKTRACKING");
+            int parallelPersisted = persistKnownSolutions(gameTypeId, gameRoundId, parallel.getSampleSolutions(), persistSolutionLimit, "THREADED_SEARCH");
+            response.setSequentialPersistedSolutionCount(sequentialPersisted);
+            response.setParallelPersistedSolutionCount(parallelPersisted);
+            response.setPersistedSolutionCount(sequentialPersisted + parallelPersisted);
 
+            boolean samplesVisible = canViewSamplesForRound(gameRoundId, normalizedViewerRole);
+            response.setSamplesVisible(samplesVisible);
+            response.setSampleSolutions(samplesVisible ? sampleSolutions : List.of());
             response.setGameRoundId(gameRoundId);
+        } else if (!isAdminRole(normalizedViewerRole)) {
+            response.setSampleSolutions(List.of());
+            response.setSamplesVisible(false);
         }
 
         double speedup = parallel.getElapsedMs() == 0 ? 0.0 : (double) sequential.getElapsedMs() / parallel.getElapsedMs();
@@ -92,6 +107,66 @@ public class SixteenQueensService {
             recognizedSolutions.clear();
         }
 
+        return response;
+    }
+
+    public RoundCloseResponse closeRound(Long gameRoundId) {
+        if (repository == null) {
+            throw new BadRequestException("Database round close is not available in in-memory mode.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
+        if (effectiveRoundId == null) {
+            throw new BadRequestException("No game round exists yet. Run solve first.");
+        }
+
+        int updated = repository.closeRound(effectiveRoundId);
+        boolean closed = repository.isRoundClosed(effectiveRoundId);
+        RoundCloseResponse response = new RoundCloseResponse();
+        response.setGameTypeId(gameTypeId);
+        response.setGameCode(GAME_CODE);
+        response.setGameRoundId(effectiveRoundId);
+        response.setClosed(closed);
+        if (updated > 0) {
+            response.setMessage("Round " + effectiveRoundId + " is now closed. Samples are visible to players.");
+        } else {
+            response.setMessage("Round " + effectiveRoundId + " was already closed.");
+        }
+        return response;
+    }
+
+    public SampleSolutionsResponse getRoundSamples(Long gameRoundId, int limit, String viewerRole) {
+        if (repository == null) {
+            throw new BadRequestException("Database samples are not available in in-memory mode.");
+        }
+
+        if (limit <= 0) {
+            throw new BadRequestException("Sample limit must be greater than 0.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
+        if (effectiveRoundId == null) {
+            throw new BadRequestException("No game round exists yet. Run solve first.");
+        }
+
+        String normalizedViewerRole = normalizeViewerRole(viewerRole);
+        boolean visible = canViewSamplesForRound(effectiveRoundId, normalizedViewerRole);
+
+        SampleSolutionsResponse response = new SampleSolutionsResponse();
+        response.setGameRoundId(effectiveRoundId);
+        response.setSamplesVisible(visible);
+
+        if (!visible) {
+            response.setSampleSolutions(List.of());
+            response.setMessage("Samples are hidden for players while the round is active.");
+            return response;
+        }
+
+        List<String> samples = repository.findKnownSolutionsForRound(gameTypeId, effectiveRoundId, limit);
+        response.setSampleSolutions(samples);
+        response.setMessage(samples.isEmpty() ? "No saved sample solutions found for this round." : "Sample solutions loaded.");
         return response;
     }
 
@@ -250,22 +325,39 @@ public class SixteenQueensService {
         return id;
     }
 
-    private int persistKnownSolutions(long gameTypeId, long gameRoundId, List<String> solutions, int persistSolutionLimit) {
+    private int persistKnownSolutions(long gameTypeId, long gameRoundId, List<String> solutions, int persistSolutionLimit, String algorithmName) {
         if (persistSolutionLimit <= 0 || solutions.isEmpty()) {
             return 0;
         }
 
         int target = Math.min(persistSolutionLimit, solutions.size());
-        int inserted = 0;
+        int insertedAnswerRows = 0;
         for (int i = 0; i < target; i++) {
             String solution = solutions.get(i);
-            inserted += repository.insertKnownSolutionIfMissing(gameTypeId, scopeSolutionHash(gameRoundId, solution), solution);
+            String roundScopedHash = scopeSolutionHash(gameRoundId, solution);
+            repository.insertKnownSolutionIfMissing(gameTypeId, roundScopedHash, solution);
+            insertedAnswerRows += repository.insertAlgorithmSolutionAnswerIfMissing(gameRoundId, algorithmName, sha256(solution), solution);
         }
-        return inserted;
+        return insertedAnswerRows;
     }
 
     private String scopeSolutionHash(long gameRoundId, String solution) {
         return gameRoundId + ":" + sha256(solution);
+    }
+
+    private boolean canViewSamplesForRound(long gameRoundId, String viewerRole) {
+        return isAdminRole(viewerRole) || repository.isRoundClosed(gameRoundId);
+    }
+
+    private String normalizeViewerRole(String viewerRole) {
+        if (viewerRole == null || viewerRole.isBlank()) {
+            return "PLAYER";
+        }
+        return viewerRole.trim().toUpperCase();
+    }
+
+    private boolean isAdminRole(String viewerRole) {
+        return "ADMIN".equals(viewerRole);
     }
 
     private String sha256(String value) {

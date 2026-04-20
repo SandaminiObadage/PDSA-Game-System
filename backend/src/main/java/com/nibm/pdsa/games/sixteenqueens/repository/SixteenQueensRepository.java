@@ -21,6 +21,18 @@ public class SixteenQueensRepository {
 
     public SixteenQueensRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        initializeRoundStateTable();
+    }
+
+    private void initializeRoundStateTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS game_round_states (
+                    game_round_id INTEGER PRIMARY KEY,
+                    is_closed INTEGER NOT NULL DEFAULT 0 CHECK (is_closed IN (0, 1)),
+                    closed_at TEXT,
+                    FOREIGN KEY (game_round_id) REFERENCES game_rounds(id) ON DELETE CASCADE
+                )
+                """);
     }
 
     public Long findGameTypeIdByCode(String code) {
@@ -73,6 +85,35 @@ public class SixteenQueensRepository {
                 "SELECT id FROM game_rounds WHERE game_type_id = ? ORDER BY round_no DESC LIMIT 1",
                 rs -> rs.next() ? rs.getLong("id") : null,
                 gameTypeId
+        );
+    }
+
+    public boolean isRoundClosed(long gameRoundId) {
+        Integer value = jdbcTemplate.query(
+            "SELECT is_closed FROM game_round_states WHERE game_round_id = ?",
+                rs -> rs.next() ? rs.getInt("is_closed") : null,
+                gameRoundId
+        );
+        return value != null && value == 1;
+    }
+
+    public int closeRound(long gameRoundId) {
+        Integer current = jdbcTemplate.query(
+            "SELECT is_closed FROM game_round_states WHERE game_round_id = ?",
+            rs -> rs.next() ? rs.getInt("is_closed") : null,
+            gameRoundId
+        );
+
+        if (current == null) {
+            return jdbcTemplate.update(
+                "INSERT INTO game_round_states (game_round_id, is_closed, closed_at) VALUES (?, 1, CURRENT_TIMESTAMP)",
+                gameRoundId
+            );
+        }
+
+        return jdbcTemplate.update(
+            "UPDATE game_round_states SET is_closed = 1, closed_at = CURRENT_TIMESTAMP WHERE game_round_id = ? AND is_closed = 0",
+            gameRoundId
         );
     }
 
@@ -159,6 +200,13 @@ public class SixteenQueensRepository {
         );
     }
 
+    public int insertAlgorithmSolutionAnswerIfMissing(long gameRoundId, String algorithmName, String solutionHash, String solutionJson) {
+        return jdbcTemplate.update(
+                "INSERT OR IGNORE INTO algorithm_solution_answers (game_round_id, algorithm_name, solution_hash, solution_json) VALUES (?, ?, ?, ?)",
+                gameRoundId, algorithmName, solutionHash, solutionJson
+        );
+    }
+
     public long countKnownSolutions(long gameTypeId) {
         Long count = jdbcTemplate.query(
                 "SELECT COUNT(*) AS cnt FROM recognized_solutions WHERE game_type_id = ?",
@@ -174,11 +222,13 @@ public class SixteenQueensRepository {
                     gr.id AS game_round_id,
                     gr.round_no AS round_no,
                     gr.round_input_json AS round_input_json,
+                    COALESCE(grs.is_closed, 0) AS is_closed,
                     gr.created_at AS created_at,
                     COALESCE((SELECT execution_time_ms FROM algorithm_runs ar WHERE ar.game_round_id = gr.id AND ar.algorithm_name = 'SEQUENTIAL_BACKTRACKING' LIMIT 1), 0) AS sequential_time_ms,
                     COALESCE((SELECT execution_time_ms FROM algorithm_runs ar WHERE ar.game_round_id = gr.id AND ar.algorithm_name = 'THREADED_SEARCH' LIMIT 1), 0) AS parallel_time_ms,
                     (SELECT COUNT(*) FROM player_answers pa WHERE pa.game_round_id = gr.id) AS player_answer_count
                 FROM game_rounds gr
+                LEFT JOIN game_round_states grs ON grs.game_round_id = gr.id
                 WHERE gr.game_type_id = ?
                 ORDER BY gr.round_no DESC
                 LIMIT ?
@@ -193,9 +243,19 @@ public class SixteenQueensRepository {
             item.setSequentialTimeMs(rs.getLong("sequential_time_ms"));
             item.setParallelTimeMs(rs.getLong("parallel_time_ms"));
             item.setPlayerAnswerCount(rs.getLong("player_answer_count"));
+            item.setClosed(rs.getInt("is_closed") == 1);
             item.setCreatedAt(rs.getString("created_at"));
             return item;
         }, gameTypeId, limit);
+    }
+
+    public List<String> findKnownSolutionsForRound(long gameTypeId, long gameRoundId, int limit) {
+        String prefix = gameRoundId + ":%";
+        return jdbcTemplate.query(
+                "SELECT solution_json FROM recognized_solutions WHERE game_type_id = ? AND solution_hash LIKE ? ORDER BY id ASC LIMIT ?",
+                (rs, rowNum) -> rs.getString("solution_json"),
+                gameTypeId, prefix, limit
+        );
     }
 
     public List<PlayerAnswerHistoryItem> findRecentAnswers(long gameTypeId, int limit) {
