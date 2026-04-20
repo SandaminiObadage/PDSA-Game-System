@@ -14,14 +14,14 @@ class SixteenQueensServiceTest {
         SixteenQueensService service = new SixteenQueensService(null);
 
         SubmitAnswerRequest first = new SubmitAnswerRequest();
-        first.setBoardSize(8);
+        first.setBoardSize(16);
         first.setPlayerName("A");
-        first.setAnswer("0,4,7,5,2,6,1,3");
+        first.setAnswer("0,2,4,1,12,8,13,11,14,5,15,6,3,10,7,9");
 
         SubmitAnswerRequest second = new SubmitAnswerRequest();
-        second.setBoardSize(8);
+        second.setBoardSize(16);
         second.setPlayerName("B");
-        second.setAnswer("0,4,7,5,2,6,1,3");
+        second.setAnswer("0,2,4,1,12,8,13,11,14,5,15,6,3,10,7,9");
 
         SubmitAnswerResponse r1 = service.submitAnswer(first);
         SubmitAnswerResponse r2 = service.submitAnswer(second);

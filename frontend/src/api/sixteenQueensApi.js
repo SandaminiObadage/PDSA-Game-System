@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const client = axios.create({
   baseURL: 'http://localhost:8080/api/games/sixteen-queens',
-  timeout: 120000,
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -10,6 +10,20 @@ const client = axios.create({
 
 export async function solveSixteenQueens(payload) {
   const response = await client.post('/solve', payload);
+  return response.data;
+}
+
+export async function fetchSixteenQueensSamples(roundId, limit = 8, viewerRole = 'PLAYER') {
+  const query = roundId
+    ? `/samples?roundId=${roundId}&limit=${limit}&viewerRole=${encodeURIComponent(viewerRole)}`
+    : `/samples?limit=${limit}&viewerRole=${encodeURIComponent(viewerRole)}`;
+  const response = await client.get(query);
+  return response.data;
+}
+
+export async function closeSixteenQueensRound(roundId) {
+  const query = roundId ? `/close-round?roundId=${roundId}` : '/close-round';
+  const response = await client.post(query);
   return response.data;
 }
 
