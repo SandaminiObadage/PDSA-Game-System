@@ -18,11 +18,14 @@ function SnakeLadderPage() {
   const [submitForm, setSubmitForm] = useState(defaultSubmitForm);
   const [solveResult, setSolveResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
+  const [showWinPopup, setShowWinPopup] = useState(false);
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardRoundId, setLeaderboardRoundId] = useState(null);
+  const [leaderboardScope, setLeaderboardScope] = useState('ALL');
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState('');
 
@@ -54,15 +57,17 @@ function SnakeLadderPage() {
     }
   };
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = async (roundId = null) => {
     setLeaderboardError('');
     setLeaderboardLoading(true);
     try {
-      const data = await getSnakeLadderLeaderboard(50);
+      const data = await getSnakeLadderLeaderboard(50, roundId);
       setLeaderboard(data.leaderboard || []);
+      setLeaderboardRoundId(data.roundId ?? roundId ?? null);
     } catch (err) {
       setLeaderboardError(err.response?.data?.message || err.message || 'Failed to load leaderboard');
       setLeaderboard([]);
+      setLeaderboardRoundId(null);
     } finally {
       setLeaderboardLoading(false);
     }
@@ -70,11 +75,18 @@ function SnakeLadderPage() {
 
   const openLeaderboard = async () => {
     setLeaderboardOpen(true);
-    await fetchLeaderboard();
+    setLeaderboardScope('ALL');
+    await fetchLeaderboard(null);
   };
 
   const closeLeaderboard = () => {
     setLeaderboardOpen(false);
+  };
+
+  const handleLeaderboardScopeChange = async (scope) => {
+    setLeaderboardScope(scope);
+    const currentRoundId = solveResult?.gameRoundId || submitForm.gameRoundId || null;
+    await fetchLeaderboard(scope === 'CURRENT' ? currentRoundId : null);
   };
 
   const handleSubmit = async () => {
@@ -96,10 +108,17 @@ function SnakeLadderPage() {
       setSubmitResult(result);
       if (result.outcome === 'WIN') {
         setStatus('Win! Correct answer identified.');
+        setShowWinPopup(true);
       } else if (result.outcome === 'DRAW') {
         setStatus('Draw! Very close, try once more.');
       } else {
         setStatus('Lose! Incorrect answer, try again.');
+      }
+
+      // Keep leaderboard current while users are playing.
+      if (leaderboardOpen) {
+        const currentRoundId = payload.gameRoundId || null;
+        await fetchLeaderboard(leaderboardScope === 'CURRENT' ? currentRoundId : null);
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -115,6 +134,8 @@ function SnakeLadderPage() {
     const n = solveResult.boardSize;
     const ladders = solveResult.ladders || [];
     const snakes = solveResult.snakes || [];
+    const laddersByStart = new Map(ladders.map((ladder) => [ladder.start, ladder]));
+    const snakesByHead = new Map(snakes.map((snake) => [snake.head, snake]));
 
     const board = [];
     for (let row = n - 1; row >= 0; row--) {
@@ -129,26 +150,25 @@ function SnakeLadderPage() {
           cellNum = row * n + n - col;
         }
         let cellClass = 'cell';
-        let content = cellNum;
+        const ladder = laddersByStart.get(cellNum);
+        const snake = snakesByHead.get(cellNum);
 
         if (cellNum === 1) cellClass += ' start';
         if (cellNum === n * n) cellClass += ' end';
-
-        const ladder = ladders.find(l => l.start === cellNum);
         if (ladder) {
           cellClass += ' ladder-start';
-          content = `↑${ladder.end}`;
         }
-
-        const snake = snakes.find(s => s.head === cellNum);
         if (snake) {
           cellClass += ' snake-head';
-          content = `↓${snake.tail}`;
         }
 
         cells.push(
           <div key={cellNum} className={cellClass}>
-            {content}
+            <div className="cell-content">
+              <span className="cell-number">{cellNum}</span>
+              {ladder && <span className="cell-marker ladder-marker" title={`Ladder to ${ladder.end}`}>🪜{ladder.end}</span>}
+              {snake && <span className="cell-marker snake-marker" title={`Snake to ${snake.tail}`}>🐍{snake.tail}</span>}
+            </div>
           </div>
         );
       }
@@ -252,7 +272,7 @@ function SnakeLadderPage() {
             {solveResult.choices.map((choice, index) => (
               <button
                 key={index}
-                className={submitForm.answer === choice ? 'selected' : ''}
+                className={`choice-button choice-${index + 1} ${submitForm.answer === choice ? 'selected' : ''}`}
                 onClick={() => setSubmitForm(prev => ({ ...prev, answer: choice }))}
               >
                 {choice}
@@ -275,12 +295,62 @@ function SnakeLadderPage() {
         </section>
       )}
 
+      {showWinPopup && (
+        <div className="celebration-overlay" role="dialog" aria-modal="true" aria-label="Winning celebration">
+          <div className="emoji-rain" aria-hidden="true">
+            {['🎉', '🥳', '🏆', '✨', '🎊', '🎉'].map((emoji, idx) => (
+              <span key={`${emoji}-${idx}`} style={{ left: `${12 + idx * 14}%`, animationDelay: `${idx * 0.2}s` }}>
+                {emoji}
+              </span>
+            ))}
+          </div>
+          <div className="celebration-modal">
+            <p className="celebration-burst">🎉 🏆 🎉</p>
+            <h3>Great Job, {submitForm.playerName || 'Player'}!</h3>
+            <p>You found the minimum throws correctly.</p>
+            <button type="button" onClick={() => setShowWinPopup(false)}>Continue Playing</button>
+          </div>
+        </div>
+      )}
+
       {leaderboardOpen && (
         <div className="modal-overlay" onClick={closeLeaderboard}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Snake & Ladder Leaderboard</h2>
+              <h2>
+                Snake & Ladder Leaderboard
+                {leaderboardScope === 'CURRENT' && leaderboardRoundId ? ` (Round ${leaderboardRoundId})` : ' (All Rounds)'}
+              </h2>
               <button className="modal-close" onClick={closeLeaderboard}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => handleLeaderboardScopeChange('ALL')}
+                style={{
+                  width: 'auto',
+                  padding: '8px 12px',
+                  borderRadius: '999px',
+                  background: leaderboardScope === 'ALL' ? '#2563eb' : '#334155',
+                  color: '#fff'
+                }}
+              >
+                All Rounds
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLeaderboardScopeChange('CURRENT')}
+                style={{
+                  width: 'auto',
+                  padding: '8px 12px',
+                  borderRadius: '999px',
+                  background: leaderboardScope === 'CURRENT' ? '#2563eb' : '#334155',
+                  color: '#fff'
+                }}
+              >
+                Current Round
+              </button>
             </div>
 
             {leaderboardLoading && <p>Loading leaderboard...</p>}

@@ -106,7 +106,11 @@ public class SnakeLadderRepository {
                 WHERE gr.game_type_id = ?
                   AND (? IS NULL OR gr.id = ?)
                 GROUP BY p.id, p.player_name
-                ORDER BY correct_answers DESC, total_answers ASC, last_submitted_at ASC
+                                ORDER BY
+                                        correct_answers DESC,
+                                        (CAST(correct_answers AS REAL) / NULLIF(total_answers, 0)) DESC,
+                                        total_answers ASC,
+                                        last_submitted_at DESC
                 LIMIT ?
                 """;
 
