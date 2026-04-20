@@ -57,6 +57,7 @@ function SixteenQueensPage() {
   const [leaderboardResult, setLeaderboardResult] = useState(null);
   const [reportResult, setReportResult] = useState(null);
   const [isRoundClosed, setIsRoundClosed] = useState(false);
+  const [showWinPopup, setShowWinPopup] = useState(false);
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -220,6 +221,9 @@ function SixteenQueensPage() {
 
       const data = await submitSixteenQueens(payload);
       setSubmitResult(data);
+      if (viewerRole === 'PLAYER' && data?.correct && !data?.alreadyRecognized) {
+        setShowWinPopup(true);
+      }
       setStatus('Submission stored in SQLite.');
     } catch (requestError) {
       const message = requestError?.response?.data?.message || requestError.message || 'Submit failed';
@@ -321,8 +325,8 @@ function SixteenQueensPage() {
           >
             ← Dashboard
           </button>
-          <p className="eyebrow">Sixteen Queens Challenge</p>
-          <h1>16x16 Queen Placement</h1>
+          <p className="eyebrow">Sixteen Queens' Puzzle</p>
+          <h1>Sixteen Queens' Puzzle</h1>
           <p className="subtitle">
             Place 16 queens on a 16x16 board so no two queens attack each other.
             Solve uses bitmask backtracking algorithm with optional parallelization.
@@ -482,6 +486,24 @@ function SixteenQueensPage() {
           <DataList data={reportResult} emptyLabel="No report loaded yet." />
         </article>
       </section>
+
+      {showWinPopup && (
+        <div className="celebration-overlay" role="dialog" aria-modal="true" aria-label="Winning celebration">
+          <div className="emoji-rain" aria-hidden="true">
+            {['🎉', '✨', '🥳', '🎊', '👑', '🎉'].map((emoji, idx) => (
+              <span key={`${emoji}-${idx}`} style={{ left: `${12 + idx * 14}%`, animationDelay: `${idx * 0.2}s` }}>
+                {emoji}
+              </span>
+            ))}
+          </div>
+          <div className="celebration-modal">
+            <p className="celebration-burst">🎉 👑 ✨ 🎉</p>
+            <h3>Congratulations, {submitForm.playerName.trim() || 'Player'}!</h3>
+            <p>You solved Sixteen Queens' Puzzle correctly.</p>
+            <button type="button" onClick={() => setShowWinPopup(false)}>Continue Playing</button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="error-banner">{error}</p>}
     </main>
