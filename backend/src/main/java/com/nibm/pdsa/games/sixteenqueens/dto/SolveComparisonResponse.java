@@ -11,7 +11,10 @@ public class SolveComparisonResponse {
     private long sequentialTimeMs;
     private long parallelTimeMs;
     private double speedup;
+    private int sequentialPersistedSolutionCount;
+    private int parallelPersistedSolutionCount;
     private int persistedSolutionCount;
+    private boolean samplesVisible;
     private List<String> sampleSolutions;
 
     public long getGameRoundId() {
@@ -70,12 +73,36 @@ public class SolveComparisonResponse {
         this.speedup = speedup;
     }
 
+    public int getSequentialPersistedSolutionCount() {
+        return sequentialPersistedSolutionCount;
+    }
+
+    public void setSequentialPersistedSolutionCount(int sequentialPersistedSolutionCount) {
+        this.sequentialPersistedSolutionCount = sequentialPersistedSolutionCount;
+    }
+
+    public int getParallelPersistedSolutionCount() {
+        return parallelPersistedSolutionCount;
+    }
+
+    public void setParallelPersistedSolutionCount(int parallelPersistedSolutionCount) {
+        this.parallelPersistedSolutionCount = parallelPersistedSolutionCount;
+    }
+
     public int getPersistedSolutionCount() {
         return persistedSolutionCount;
     }
 
     public void setPersistedSolutionCount(int persistedSolutionCount) {
         this.persistedSolutionCount = persistedSolutionCount;
+    }
+
+    public boolean isSamplesVisible() {
+        return samplesVisible;
+    }
+
+    public void setSamplesVisible(boolean samplesVisible) {
+        this.samplesVisible = samplesVisible;
     }
 
     public List<String> getSampleSolutions() {
