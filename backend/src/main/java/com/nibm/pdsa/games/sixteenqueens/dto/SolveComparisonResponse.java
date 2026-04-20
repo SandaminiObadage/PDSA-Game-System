@@ -12,6 +12,7 @@ public class SolveComparisonResponse {
     private long parallelTimeMs;
     private double speedup;
     private int persistedSolutionCount;
+    private boolean samplesVisible;
     private List<String> sampleSolutions;
 
     public long getGameRoundId() {
@@ -76,6 +77,14 @@ public class SolveComparisonResponse {
 
     public void setPersistedSolutionCount(int persistedSolutionCount) {
         this.persistedSolutionCount = persistedSolutionCount;
+    }
+
+    public boolean isSamplesVisible() {
+        return samplesVisible;
+    }
+
+    public void setSamplesVisible(boolean samplesVisible) {
+        this.samplesVisible = samplesVisible;
     }
 
     public List<String> getSampleSolutions() {

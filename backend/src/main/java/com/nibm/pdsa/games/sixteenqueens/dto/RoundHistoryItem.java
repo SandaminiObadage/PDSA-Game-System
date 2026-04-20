@@ -9,6 +9,7 @@ public class RoundHistoryItem {
     private long sequentialTimeMs;
     private long parallelTimeMs;
     private long playerAnswerCount;
+    private boolean closed;
     private String createdAt;
 
     public long getGameRoundId() {
@@ -65,6 +66,14 @@ public class RoundHistoryItem {
 
     public void setPlayerAnswerCount(long playerAnswerCount) {
         this.playerAnswerCount = playerAnswerCount;
+    }
+
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public void setClosed(boolean closed) {
+        this.closed = closed;
     }
 
     public String getCreatedAt() {
