@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const client = axios.create({
   baseURL: 'http://localhost:8080/api/games/sixteen-queens',
-  timeout: 120000,
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json'
   }

@@ -11,9 +11,9 @@ import {
 const BOARD_SIZE = 16;
 
 const defaultSolveForm = {
-  threadCount: 8,
-  solutionSampleLimit: 12,
-  persistSolutionLimit: 200
+  threadCount: 4,
+  solutionSampleLimit: 8,
+  persistSolutionLimit: 100
 };
 
 const defaultSubmitForm = {
@@ -116,7 +116,9 @@ function App() {
       }));
       setStatus('Solve completed and saved to SQLite.');
     } catch (requestError) {
-      const message = requestError?.response?.data?.message || requestError.message || 'Solve failed';
+      const message = requestError?.code === 'ECONNABORTED'
+        ? 'Solve timed out on client side. Keep backend running and try again; the request timeout is now set to 300 seconds.'
+        : (requestError?.response?.data?.message || requestError.message || 'Solve failed');
       setError(message);
       setStatus('Solve failed');
     } finally {
