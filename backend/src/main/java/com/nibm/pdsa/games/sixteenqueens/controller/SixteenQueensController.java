@@ -1,7 +1,9 @@
 package com.nibm.pdsa.games.sixteenqueens.controller;
 
+import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveRequest;
 import com.nibm.pdsa.games.sixteenqueens.dto.SubmitAnswerRequest;
 import com.nibm.pdsa.games.sixteenqueens.dto.SubmitAnswerResponse;
@@ -29,7 +31,8 @@ public class SixteenQueensController {
         return sixteenQueensService.runComparison(
                 request.getBoardSize(),
                 request.getThreadCount(),
-                request.getSolutionSampleLimit()
+                request.getSolutionSampleLimit(),
+                request.getPersistSolutionLimit()
         );
     }
 
@@ -41,5 +44,15 @@ public class SixteenQueensController {
     @GetMapping("/history")
     public SixteenQueensHistoryResponse history(@RequestParam(defaultValue = "10") int limit) {
         return sixteenQueensService.getHistory(limit);
+    }
+
+    @GetMapping("/leaderboard")
+    public SixteenQueensLeaderboardResponse leaderboard(@RequestParam(defaultValue = "10") int limit) {
+        return sixteenQueensService.getLeaderboard(limit);
+    }
+
+    @GetMapping("/report")
+    public SixteenQueensReportResponse report() {
+        return sixteenQueensService.getReport();
     }
 }

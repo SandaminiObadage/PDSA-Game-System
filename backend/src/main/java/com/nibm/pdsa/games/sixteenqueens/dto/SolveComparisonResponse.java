@@ -11,6 +11,7 @@ public class SolveComparisonResponse {
     private long sequentialTimeMs;
     private long parallelTimeMs;
     private double speedup;
+    private int persistedSolutionCount;
     private List<String> sampleSolutions;
 
     public long getGameRoundId() {
@@ -67,6 +68,14 @@ public class SolveComparisonResponse {
 
     public void setSpeedup(double speedup) {
         this.speedup = speedup;
+    }
+
+    public int getPersistedSolutionCount() {
+        return persistedSolutionCount;
+    }
+
+    public void setPersistedSolutionCount(int persistedSolutionCount) {
+        this.persistedSolutionCount = persistedSolutionCount;
     }
 
     public List<String> getSampleSolutions() {

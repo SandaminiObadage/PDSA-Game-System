@@ -2,8 +2,10 @@ package com.nibm.pdsa.games.sixteenqueens.service;
 
 import com.nibm.pdsa.common.exception.BadRequestException;
 import com.nibm.pdsa.games.sixteenqueens.algorithm.BitmaskBacktrackingSolver;
+import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensLeaderboardResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SolveComparisonResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensHistoryResponse;
+import com.nibm.pdsa.games.sixteenqueens.dto.SixteenQueensReportResponse;
 import com.nibm.pdsa.games.sixteenqueens.dto.SubmitAnswerRequest;
 import com.nibm.pdsa.games.sixteenqueens.dto.SubmitAnswerResponse;
 import com.nibm.pdsa.games.sixteenqueens.model.QueensSolveResult;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,8 +35,9 @@ public class SixteenQueensService {
         this.repository = repository;
     }
 
-    public SolveComparisonResponse runComparison(int boardSize, int threadCount, int sampleLimit) {
-        QueensSolveResult sequential = solver.solveSequential(boardSize, sampleLimit);
+    public SolveComparisonResponse runComparison(int boardSize, int threadCount, int sampleLimit, int persistSolutionLimit) {
+        int effectiveCollectionLimit = Math.max(sampleLimit, persistSolutionLimit);
+        QueensSolveResult sequential = solver.solveSequential(boardSize, effectiveCollectionLimit);
         QueensSolveResult parallel = solver.solveParallel(boardSize, threadCount, sampleLimit);
 
         SolveComparisonResponse response = new SolveComparisonResponse();
@@ -42,7 +46,8 @@ public class SixteenQueensService {
         response.setParallelSolutionCount(parallel.getSolutionCount());
         response.setSequentialTimeMs(sequential.getElapsedMs());
         response.setParallelTimeMs(parallel.getElapsedMs());
-        response.setSampleSolutions(sequential.getSampleSolutions());
+        List<String> collectedSolutions = sequential.getSampleSolutions();
+        response.setSampleSolutions(collectedSolutions.stream().limit(sampleLimit).toList());
 
         if (repository != null) {
             long gameTypeId = getGameTypeId();
@@ -65,6 +70,9 @@ public class SixteenQueensService {
                 parallel.getElapsedMs(),
                 "{\"solutionCount\":" + parallel.getSolutionCount() + ",\"threadCount\":" + threadCount + "}"
             );
+
+            int persisted = persistKnownSolutions(gameTypeId, collectedSolutions, persistSolutionLimit);
+            response.setPersistedSolutionCount(persisted);
 
             response.setGameRoundId(gameRoundId);
         }
@@ -170,12 +178,51 @@ public class SixteenQueensService {
         return response;
     }
 
+    public SixteenQueensLeaderboardResponse getLeaderboard(int limit) {
+        if (repository == null) {
+            throw new BadRequestException("Database leaderboard is not available in in-memory mode.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        SixteenQueensLeaderboardResponse response = new SixteenQueensLeaderboardResponse();
+        response.setGameTypeId(gameTypeId);
+        response.setGameCode(GAME_CODE);
+        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit));
+        return response;
+    }
+
+    public SixteenQueensReportResponse getReport() {
+        if (repository == null) {
+            throw new BadRequestException("Database report is not available in in-memory mode.");
+        }
+
+        long gameTypeId = getGameTypeId();
+        SixteenQueensReportResponse response = repository.getReport(gameTypeId);
+        response.setGameTypeId(gameTypeId);
+        response.setGameCode(GAME_CODE);
+        return response;
+    }
+
     private long getGameTypeId() {
         Long id = repository.findGameTypeIdByCode(GAME_CODE);
         if (id == null) {
             throw new BadRequestException("Game type SIXTEEN_QUEENS is not initialized in the database.");
         }
         return id;
+    }
+
+    private int persistKnownSolutions(long gameTypeId, List<String> solutions, int persistSolutionLimit) {
+        if (persistSolutionLimit <= 0 || solutions.isEmpty()) {
+            return 0;
+        }
+
+        int target = Math.min(persistSolutionLimit, solutions.size());
+        int inserted = 0;
+        for (int i = 0; i < target; i++) {
+            String solution = solutions.get(i);
+            inserted += repository.insertKnownSolutionIfMissing(gameTypeId, sha256(solution), solution);
+        }
+        return inserted;
     }
 
     private String sha256(String value) {
