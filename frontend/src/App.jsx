@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import SixteenQueensPage from './pages/sixteen-queens/page';
+import TrafficSimulationPage from './pages/traffic-simulation/page';
 import SnakeLadderPage from './pages/snake-ladder/page';
 import GameNotAvailable from './pages/GameNotAvailable';
 
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/games/sixteen-queens" element={<SixteenQueensPage />} />
+        <Route path="/games/traffic-simulation" element={<TrafficSimulationPage />} />
         <Route path="/games/snake-ladder" element={<SnakeLadderPage />} />
         <Route path="/games/:gameId" element={<GameNotAvailable />} />
         <Route path="*" element={<Navigate to="/" replace />} />
