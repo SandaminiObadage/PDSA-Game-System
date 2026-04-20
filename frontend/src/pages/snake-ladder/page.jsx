@@ -118,38 +118,61 @@ function SnakeLadderPage() {
   };
 
   return (
-    <div className="snake-ladder-page">
-      <h1>Snake and Ladder Game</h1>
-
-      <div className="solve-section">
-        <h2>Generate Board</h2>
-        <div className="form-group">
-          <label>Board Size (6-12):</label>
-          <input
-            type="number"
-            min="6"
-            max="12"
-            value={solveForm.boardSize}
-            onChange={(e) => setSolveForm(prev => ({ ...prev, boardSize: parseInt(e.target.value) }))}
-          />
+    <main className="shell">
+      <section className="hero">
+        <div>
+          <button
+            className="back-button"
+            onClick={() => navigate('/')}
+            title="Back to dashboard"
+          >
+            ← Dashboard
+          </button>
+          <p className="eyebrow">Snake and Ladder Challenge</p>
+          <h1>Snake and Ladder Game</h1>
+          <p className="subtitle">
+            Generate a random {solveForm.boardSize}×{solveForm.boardSize} board with snakes and ladders,
+            then choose the minimum dice throws from three algorithm-derived options.
+          </p>
         </div>
-        <button onClick={handleSolve} disabled={loading}>Generate Board</button>
+        <div className="status-card">
+          <span>Status</span>
+          <strong>{status}</strong>
+        </div>
+      </section>
+
+      <div className="grid-layout">
+        <section className="panel">
+          <h2>Generate Board</h2>
+          <div className="form-group">
+            <label>Board Size (6-12):</label>
+            <input
+              type="number"
+              min="6"
+              max="12"
+              value={solveForm.boardSize}
+              onChange={(e) => setSolveForm(prev => ({ ...prev, boardSize: parseInt(e.target.value, 10) || 6 }))}
+            />
+          </div>
+          <button onClick={handleSolve} disabled={loading}>Generate Board</button>
+          {error && <p className="error-banner">{error}</p>}
+        </section>
+
+        {solveResult && (
+          <section className="panel">
+            <h2>Board Preview</h2>
+            {renderBoard()}
+            <div className="algorithm-results">
+              <p>BFS Time: {solveResult.bfsTimeMs}ms</p>
+              <p>DP Time: {solveResult.dpTimeMs}ms</p>
+            </div>
+          </section>
+        )}
       </div>
 
       {solveResult && (
-        <div className="board-section">
-          <h2>Board</h2>
-          {renderBoard()}
-          <div className="algorithm-results">
-            <p>BFS Time: {solveResult.bfsTimeMs}ms</p>
-            <p>DP Time: {solveResult.dpTimeMs}ms</p>
-          </div>
-        </div>
-      )}
-
-      {solveResult && (
-        <div className="answer-section">
-          <h2>What is the minimum number of dice throws to reach the end?</h2>
+        <section className="panel">
+          <h2>Choose the Minimum Throws</h2>
           <div className="choices">
             {solveResult.choices.map((choice, index) => (
               <button
@@ -172,24 +195,19 @@ function SnakeLadderPage() {
           <button onClick={handleSubmit} disabled={loading || !submitForm.playerName.trim() || !submitForm.answer}>
             Submit Answer
           </button>
-        </div>
+        </section>
       )}
 
       {submitResult && (
-        <div className={`result ${submitResult.isCorrect ? 'success' : 'failure'}`}>
-          <h2>{submitResult.isCorrect ? 'Correct!' : 'Incorrect'}</h2>
-          <p>{submitResult.message}</p>
-          {!submitResult.isCorrect && <p>Correct answer: {submitResult.correctAnswer}</p>}
-        </div>
+        <section className="panel">
+          <div className={`result ${submitResult.isCorrect ? 'success' : 'failure'}`}>
+            <h2>{submitResult.isCorrect ? 'Correct!' : 'Incorrect'}</h2>
+            <p>{submitResult.message}</p>
+            {!submitResult.isCorrect && <p>Correct answer: {submitResult.correctAnswer}</p>}
+          </div>
+        </section>
       )}
-
-      <div className="status">
-        <p>Status: {status}</p>
-        {error && <p className="error">Error: {error}</p>}
-      </div>
-
-      <button onClick={() => navigate('/dashboard')}>Back to Dashboard</button>
-    </div>
+    </main>
   );
 }
 
