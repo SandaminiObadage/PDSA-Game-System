@@ -106,9 +106,10 @@ public class SnakeLadderService {
         response.setCorrectAnswer(correctAnswer);
         response.setMessage(isCorrect ? "Correct! Well done." : "Incorrect. Try again.");
 
-        if (repository != null && isCorrect) {
+        if (repository != null) {
             long playerId = repository.ensurePlayerAndGetId(request.getPlayerName());
-            repository.insertPlayerAnswer(request.getGameRoundId(), playerId, request.getAnswer().toString(), true);
+            repository.insertPlayerAnswer(request.getGameRoundId(), playerId, request.getAnswer().toString(),
+                    isCorrect);
         }
 
         return response;
@@ -224,17 +225,11 @@ public class SnakeLadderService {
         }
 
         long gameTypeId = getGameTypeId();
-        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
         com.nibm.pdsa.games.snakeladder.dto.SnakeLadderLeaderboardResponse response = new com.nibm.pdsa.games.snakeladder.dto.SnakeLadderLeaderboardResponse();
         response.setGameTypeId(gameTypeId);
         response.setGameCode(GAME_CODE);
-        response.setRoundId(effectiveRoundId);
-        if (effectiveRoundId == null) {
-            response.setLeaderboard(List.of());
-            return response;
-        }
-
-        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit, effectiveRoundId));
+        response.setRoundId(gameRoundId);
+        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit, gameRoundId));
         return response;
     }
 }
