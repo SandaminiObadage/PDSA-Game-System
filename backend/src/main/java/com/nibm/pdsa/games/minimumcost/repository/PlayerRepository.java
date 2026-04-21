@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
-@Repository
+@Repository("minimumCostPlayerRepository")
 public interface PlayerRepository extends JpaRepository<Player, Long> {
     
     // Find all results for a specific player, ordered by most recent first
@@ -25,6 +25,6 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     long countByPlayerName(String playerName);
     
     // Count correct answers by player
-    @Query("SELECT COUNT(p) FROM Player p WHERE p.playerName = :playerName AND p.isCorrect = true")
+    @Query("SELECT COUNT(p) FROM MinimumCostPlayer p WHERE p.playerName = :playerName AND p.isCorrect = true")
     long countCorrectByPlayerName(@Param("playerName") String playerName);
 }

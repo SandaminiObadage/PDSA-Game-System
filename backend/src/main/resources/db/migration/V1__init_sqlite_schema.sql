@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS game_rounds (
     round_no INTEGER NOT NULL,
     round_input_json TEXT NOT NULL,
     expected_output_json TEXT,
+    is_closed INTEGER NOT NULL DEFAULT 0 CHECK (is_closed IN (0, 1)),
+    closed_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_type_id) REFERENCES game_types(id) ON DELETE RESTRICT,
     UNIQUE (game_type_id, round_no)
@@ -71,6 +73,7 @@ CREATE TABLE IF NOT EXISTS game_algorithms (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_rounds_game_type ON game_rounds(game_type_id);
+CREATE INDEX IF NOT EXISTS idx_game_rounds_closed ON game_rounds(game_type_id, is_closed);
 CREATE INDEX IF NOT EXISTS idx_algorithm_runs_round ON algorithm_runs(game_round_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_algorithm_runs_unique
 ON algorithm_runs(game_round_id, algorithm_name, IFNULL(algorithm_variant, ''));
