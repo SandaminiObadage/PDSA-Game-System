@@ -5,6 +5,11 @@ import TrafficSimulationPage from './pages/traffic-simulation/page';
 import SnakeLadderPage from './pages/snake-ladder/page';
 import GameNotAvailable from './pages/GameNotAvailable';
 import MinimumCostPage from './pages/minimum-cost/page';
+import KnightTourHome from './pages/knights-tour/Home';
+import KnightTourGame from './pages/knights-tour/Game';
+import KnightTourResult from './pages/knights-tour/Result';
+import KnightTourLeaderboard from './pages/knights-tour/Leaderboard';
+
 
 function App() {
   return (
@@ -12,6 +17,11 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/games/sixteen-queens" element={<SixteenQueensPage />} />
+        <Route path="/games/knights-tour" element={<KnightTourHome />} />
+        <Route path="/games/knights-tour/game" element={<KnightTourGame />} />
+        <Route path="/games/knights-tour/result" element={<KnightTourResult />} />
+        <Route path="/games/knights-tour/leaderboard" element={<KnightTourLeaderboard />} />
+
         <Route path="/games/minimum-cost" element={<MinimumCostPage />} />
         <Route path="/games/traffic-simulation" element={<TrafficSimulationPage />} />
         <Route path="/games/snake-ladder" element={<SnakeLadderPage />} />

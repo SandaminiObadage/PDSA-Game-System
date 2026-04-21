@@ -88,14 +88,14 @@ function Result() {
                 placeholder="Enter player name"
               />
             </label>
-            <button type="submit" onClick={handleValidate} disabled={loading}>
+            <button className="full-width" type="submit" onClick={handleValidate} disabled={loading}>
               {loading ? 'Submitting...' : 'Validate'}
             </button>
           </form>
 
-          <div className="kt-action-row">
+          <div className="kt-action-row kt-result-actions">
             <button type="button" onClick={handleNewGame}>New Game</button>
-            <button type="button" onClick={() => navigate('/leaderboard')}>View Leaderboard</button>
+            <button type="button" onClick={() => navigate('/games/knights-tour/leaderboard')}>View Leaderboard</button>
           </div>
         </article>
       </section>

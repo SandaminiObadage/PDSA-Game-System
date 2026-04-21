@@ -145,7 +145,7 @@ function Game() {
     );
 
     setTimeout(() => {
-      navigate('/result');
+      navigate('/games/knights-tour/result');
     }, 1100);
   };
 

@@ -10,7 +10,9 @@ function ResultModal({ status, message, onClose }) {
       <div className="kt-modal">
         <h2 className={statusClass}>{status}</h2>
         <p>{message}</p>
-        <button type="button" onClick={onClose}>Close</button>
+                <div className="kt-modal-actions">
+          <button type="button" onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );

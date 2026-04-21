@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
-@Entity
+@Entity(name = "KnightsTourPlayer")
 @Table(name = "players")
 public class Player {
 

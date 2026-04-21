@@ -24,7 +24,7 @@ function Home() {
           moves: [response.startPosition]
         })
       );
-      navigate('/game');
+      navigate('/games/knights-tour/game');
     } catch (requestError) {
       const message = requestError?.response?.data?.message || requestError.message || 'Unable to start game.';
       setError(message);

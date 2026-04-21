@@ -16,7 +16,7 @@ import com.nibm.pdsa.games.knightstour.exception.BadRequestException;
 import com.nibm.pdsa.games.knightstour.exception.ResourceNotFoundException;
 import com.nibm.pdsa.games.knightstour.repository.GameResultRepository;
 import com.nibm.pdsa.games.knightstour.repository.KnightRepository;
-import com.nibm.pdsa.games.knightstour.repository.PlayerRepository;
+import com.nibm.pdsa.games.knightstour.repository.KnightTourPlayerRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,13 +40,13 @@ public class KnightGameService {
     private static final String DRAW_MESSAGE = "Game ended as a draw.";
 
     private final KnightRepository knightRepository;
-    private final PlayerRepository playerRepository;
+    private final KnightTourPlayerRepository playerRepository;
     private final GameResultRepository gameResultRepository;
     private final ObjectMapper objectMapper;
 
     public KnightGameService(
             KnightRepository knightRepository,
-            PlayerRepository playerRepository,
+            KnightTourPlayerRepository playerRepository,
             GameResultRepository gameResultRepository,
             ObjectMapper objectMapper
     ) {
