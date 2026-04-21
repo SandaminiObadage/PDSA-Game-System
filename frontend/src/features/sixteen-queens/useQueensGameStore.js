@@ -33,6 +33,7 @@ export const useQueensGameStore = create((set, get) => ({
   submitResult: null,
   historyResult: null,
   leaderboardResult: null,
+  allRoundsLeaderboardResult: null,
   reportResult: null,
   roundClosed: false,
   loading: false,

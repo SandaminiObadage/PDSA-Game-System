@@ -264,23 +264,26 @@ public class SixteenQueensService {
         return response;
     }
 
-    public SixteenQueensLeaderboardResponse getLeaderboard(int limit, Long gameRoundId) {
+    public SixteenQueensLeaderboardResponse getLeaderboard(int limit, Long gameRoundId, String scope) {
         if (repository == null) {
             throw new BadRequestException("Database leaderboard is not available in in-memory mode.");
         }
 
         long gameTypeId = getGameTypeId();
-        Long effectiveRoundId = gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId);
+        boolean allRounds = scope != null && "ALL".equalsIgnoreCase(scope.trim());
+        Long effectiveRoundId = allRounds ? null : (gameRoundId != null ? gameRoundId : repository.findLatestRoundId(gameTypeId));
         SixteenQueensLeaderboardResponse response = new SixteenQueensLeaderboardResponse();
         response.setGameTypeId(gameTypeId);
         response.setGameCode(GAME_CODE);
         response.setRoundId(effectiveRoundId);
-        if (effectiveRoundId == null) {
+        if (!allRounds && effectiveRoundId == null) {
             response.setLeaderboard(List.of());
             return response;
         }
 
-        response.setLeaderboard(repository.findLeaderboard(gameTypeId, limit, effectiveRoundId));
+        response.setLeaderboard(allRounds
+            ? repository.findAllRoundsLeaderboard(gameTypeId, limit)
+            : repository.findLeaderboard(gameTypeId, limit, effectiveRoundId));
         return response;
     }
 

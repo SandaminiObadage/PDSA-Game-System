@@ -57,8 +57,19 @@ export async function fetchSixteenQueensHistory(limit = 10) {
   return response.data;
 }
 
-export async function fetchSixteenQueensLeaderboard(limit = 10, roundId) {
-  const query = roundId ? `/leaderboard?limit=${limit}&roundId=${roundId}` : `/leaderboard?limit=${limit}`;
+export async function fetchSixteenQueensLeaderboard(limit = 10, roundId, scope = 'CURRENT') {
+  const params = new URLSearchParams();
+  params.set('limit', String(limit));
+
+  if (roundId) {
+    params.set('roundId', String(roundId));
+  }
+
+  if (scope) {
+    params.set('scope', scope);
+  }
+
+  const query = `/leaderboard?${params.toString()}`;
   const response = await requestWithRetry(() => client.get(query), 1);
   return response.data;
 }
