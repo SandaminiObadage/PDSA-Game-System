@@ -1,0 +1,11 @@
+package com.nibm.pdsa.games.knightstour.repository;
+
+import com.nibm.pdsa.games.knightstour.entity.GameResult;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface GameResultRepository extends JpaRepository<GameResult, Long> {
+
+    List<GameResult> findAllByOrderByCreatedAtDesc();
+}
