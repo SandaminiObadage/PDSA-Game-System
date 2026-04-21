@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "knight_tour_sessions")
+@Table(name = "knight")
 public class Knight {
 
     @Id
