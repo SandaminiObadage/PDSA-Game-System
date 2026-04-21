@@ -330,6 +330,10 @@ public class SixteenQueensRepository {
         }, gameTypeId, roundPrefix, roundPrefix, gameTypeId, gameRoundId, gameRoundId, limit);
     }
 
+    public List<LeaderboardEntry> findAllRoundsLeaderboard(long gameTypeId, int limit) {
+        return findLeaderboard(gameTypeId, limit, null);
+    }
+
     public long countActiveRecognizedForRound(long gameTypeId, long gameRoundId) {
         String prefix = gameRoundId + ":%";
         Long count = jdbcTemplate.query(

@@ -52,6 +52,8 @@ describe('SixteenQueensPage UI', () => {
   it('places queens and marks conflict lanes', async () => {
     const { container } = renderPage();
 
+    expect(screen.getByRole('heading', { name: /How to Play/i })).toBeInTheDocument();
+
     const row1col1 = await screen.findByRole('button', { name: /^Row 1 column 1$/i });
     const row2col1 = screen.getByRole('button', { name: /^Row 2 column 1$/i });
 

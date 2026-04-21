@@ -2,7 +2,7 @@ package com.nibm.pdsa.games.minimumcost.model;
 
 import jakarta.persistence.*;
 
-@Entity
+@Entity(name = "MinimumCostPlayer")
 @Table(name = "game_results")
 public class Player {
     @Id

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -44,6 +44,7 @@ function SixteenQueensPage() {
     submitResult,
     historyResult,
     leaderboardResult,
+    allRoundsLeaderboardResult,
     reportResult,
     roundClosed,
     loading,
@@ -72,6 +73,11 @@ function SixteenQueensPage() {
   const answerFromGrid = useMemo(() => toAnswerString(board), [board]);
   const canSubmit = submitForm.playerName.trim().length > 0 && boardStatus === 'valid';
   const showSamplesInControls = viewerRole === 'ADMIN' && Boolean(solveResult);
+  const [leaderboardScope, setLeaderboardScope] = useState('CURRENT');
+  const activeLeaderboardResult = leaderboardScope === 'ALL' ? allRoundsLeaderboardResult : leaderboardResult;
+  const activeLeaderboardLabel = leaderboardScope === 'ALL'
+    ? 'All rounds'
+    : `Current round${leaderboardResult?.roundId ? ` #${leaderboardResult.roundId}` : ''}`;
 
   const handleSelectSample = (index) => {
     const selected = sampleSolutions[index];
@@ -90,13 +96,15 @@ function SixteenQueensPage() {
   useEffect(() => {
     const preload = async () => {
       try {
-        const [historyData, leaderboardData, reportData] = await Promise.all([
+        const [historyData, leaderboardData, allRoundsLeaderboardData, reportData] = await Promise.all([
           fetchSixteenQueensHistory(12),
-          fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT),
+          fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT, undefined, 'CURRENT'),
+          fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT, undefined, 'ALL'),
           fetchSixteenQueensReport()
         ]);
         setApiData('historyResult', historyData);
         setApiData('leaderboardResult', leaderboardData);
+        setApiData('allRoundsLeaderboardResult', allRoundsLeaderboardData);
         setApiData('reportResult', reportData);
       } catch {
         // Dashboard is still usable without initial data.
@@ -247,7 +255,7 @@ function SixteenQueensPage() {
       sounds.playSuccess();
       pushToast({ tone: 'success', title: 'Unique solution found', message: 'Your answer is now recognized globally.' });
       await checkAllCompleted();
-      await Promise.all([loadHistory(), loadLeaderboard()]);
+      await Promise.all([loadHistory(), loadLeaderboard(), loadAllRoundsLeaderboard()]);
     });
   };
 
@@ -259,9 +267,16 @@ function SixteenQueensPage() {
   };
 
   const loadLeaderboard = async () => {
-    const data = await fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT);
+    const data = await fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT, undefined, 'CURRENT');
     setApiData('leaderboardResult', data);
     setStatusMessage('Leaderboard synced.');
+    return data;
+  };
+
+  const loadAllRoundsLeaderboard = async () => {
+    const data = await fetchSixteenQueensLeaderboard(LEADERBOARD_LIMIT, undefined, 'ALL');
+    setApiData('allRoundsLeaderboardResult', data);
+    setStatusMessage('All-round leaderboard synced.');
     return data;
   };
 
@@ -324,7 +339,7 @@ function SixteenQueensPage() {
 
   const handleRefreshDashboards = async () => {
     await withLoading('Refreshing dashboards...', async () => {
-      await Promise.all([loadHistory(), loadLeaderboard(), loadReport()]);
+      await Promise.all([loadHistory(), loadLeaderboard(), loadAllRoundsLeaderboard(), loadReport()]);
       pushToast({ tone: 'info', title: 'Dashboard refreshed', message: 'History, leaderboard, and report are up to date.' });
     });
   };
@@ -336,7 +351,7 @@ function SixteenQueensPage() {
       setApiData('gameState', 'playing');
       setCelebration(null);
       pushToast({ tone: 'success', title: 'Recognized reset', message: 'Recognition state reset for the selected round.' });
-      await Promise.all([loadLeaderboard(), loadReport()]);
+      await Promise.all([loadLeaderboard(), loadAllRoundsLeaderboard(), loadReport()]);
     });
   };
 
@@ -393,7 +408,7 @@ function SixteenQueensPage() {
         <div>
           <button className="ghost-action" onClick={() => navigate('/')}>Back to dashboard</button>
           <p className="eyebrow">Sixteen Queens Experience</p>
-          <h1>Interactive 16x16 Queen Arena</h1>
+          <h1>Interactive Sixteen Queens' Puzzle</h1>
           <p className="hero-copy">
             Build a conflict-free queen layout with instant visual validation, then race the global leaderboard.
           </p>
@@ -407,6 +422,16 @@ function SixteenQueensPage() {
           </small>
         </div>
       </header>
+
+      <section className="game-instructions" aria-label="How to play Sixteen Queens">
+        <h3>How to Play</h3>
+        <ol>
+          <li>Place one queen in each row.</li>
+          <li>Make sure no queens attack each other.</li>
+          <li>Use Clear board if you want to restart quickly.</li>
+          <li>Submit when all 16 queens are safe.</li>
+        </ol>
+      </section>
 
       <section className="queens-grid">
         <article className="panel board-panel">
@@ -550,8 +575,29 @@ function SixteenQueensPage() {
 
       <section className="dashboard-layout">
         <article className="panel">
-          <h2>Leaderboard</h2>
-          <LeaderboardTable leaderboardResult={leaderboardResult} />
+          <div className="panel-header-inline">
+            <h2>Leaderboard</h2>
+            <div className="chip-row">
+              <button
+                type="button"
+                className={`secondary ${leaderboardScope === 'CURRENT' ? 'active' : ''}`}
+                onClick={() => setLeaderboardScope('CURRENT')}
+                disabled={loading}
+              >
+                Current round
+              </button>
+              <button
+                type="button"
+                className={`secondary ${leaderboardScope === 'ALL' ? 'active' : ''}`}
+                onClick={() => setLeaderboardScope('ALL')}
+                disabled={loading}
+              >
+                All rounds
+              </button>
+            </div>
+          </div>
+          <p className="leaderboard-meta">Showing {activeLeaderboardLabel} leaderboard.</p>
+          <LeaderboardTable leaderboardResult={activeLeaderboardResult} />
         </article>
 
         <article className="panel">
@@ -564,7 +610,7 @@ function SixteenQueensPage() {
           <ReportsDashboard
             reportResult={reportResult}
             historyResult={historyResult}
-            leaderboardResult={leaderboardResult}
+            leaderboardResult={allRoundsLeaderboardResult || leaderboardResult}
           />
         </article>
       </section>

@@ -67,9 +67,10 @@ public class SixteenQueensController {
     @GetMapping("/leaderboard")
     public SixteenQueensLeaderboardResponse leaderboard(
             @RequestParam(defaultValue = "10") int limit,
-            @RequestParam(required = false) Long roundId
+            @RequestParam(required = false) Long roundId,
+            @RequestParam(defaultValue = "CURRENT") String scope
     ) {
-        return sixteenQueensService.getLeaderboard(limit, roundId);
+        return sixteenQueensService.getLeaderboard(limit, roundId, scope);
     }
 
     @PostMapping("/reset-recognized")
