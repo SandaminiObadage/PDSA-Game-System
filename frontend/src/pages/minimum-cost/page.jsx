@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import "./MinimumCost.css";
 import {
   getMinimumCostGame,
@@ -8,6 +9,7 @@ import {
 } from "../../api/minimumcostApi";
 
 function MinimumCost() {
+  const navigate = useNavigate();
   const [step, setStep] = useState("home");
   const [name, setName] = useState("");
   const [score, setScore] = useState(0);
@@ -63,6 +65,10 @@ function MinimumCost() {
 
   const endGame = () => {
     setStep("gameover");
+  };
+
+  const handleBackToDashboard = () => {
+    navigate('/');
   };
 
   // MATRIX
@@ -393,6 +399,12 @@ function MinimumCost() {
           </button>
         </div>
       )}
+
+      <div className="footerActions">
+        <button className="btnBackDashboard" onClick={handleBackToDashboard}>
+          ← Back to Dashboard
+        </button>
+      </div>
 
     </div>
   );
