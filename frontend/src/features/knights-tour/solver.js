@@ -119,6 +119,11 @@ function sortCandidates(candidates) {
   });
 }
 
+export function getLegalCandidates(currentKey, visitedSet, boardSize) {
+  const neighbors = getNeighborCache(boardSize).get(currentKey) || [];
+  return neighbors.filter((neighbor) => !visitedSet.has(neighbor.key));
+}
+
 function isFutureAccessible(candidate, moveCount, boardSize) {
   const total = boardSize * boardSize;
   const nextMoveCount = moveCount + 1;
@@ -129,10 +134,7 @@ function isFutureAccessible(candidate, moveCount, boardSize) {
 }
 
 export function getWarnsdorffCandidates(currentKey, visitedSet, boardSize) {
-  const neighbors = getNeighborCache(boardSize).get(currentKey) || [];
-
-  const raw = neighbors
-    .filter((neighbor) => !visitedSet.has(neighbor.key))
+  const raw = getLegalCandidates(currentKey, visitedSet, boardSize)
     .map((neighbor) => {
       const onwardCount = (getNeighborCache(boardSize).get(neighbor.key) || []).filter(
         (next) => !visitedSet.has(next.key) && next.key !== currentKey
@@ -159,39 +161,7 @@ export function getWarnsdorffCandidates(currentKey, visitedSet, boardSize) {
   }));
 }
 
-function backtrackingFirstStep(current, visited, boardSize, nodeLimit, state) {
-  if (state.nodes > nodeLimit) {
-    return null;
-  }
-
-  if (visited.size === boardSize * boardSize) {
-    return [];
-  }
-
-  const candidates = getWarnsdorffCandidates(current.key, visited, boardSize)
-    .filter((candidate) => isFutureAccessible(candidate, visited.size, boardSize));
-
-  for (const candidate of candidates) {
-    if (state.nodes > nodeLimit) {
-      return null;
-    }
-
-    state.nodes += 1;
-    visited.add(candidate.key);
-
-    const candidateNode = { row: candidate.row, col: candidate.col, key: candidate.key };
-    const suffix = backtrackingFirstStep(candidateNode, visited, boardSize, nodeLimit, state);
-    if (suffix !== null) {
-      return [candidateNode, ...suffix];
-    }
-
-    visited.delete(candidate.key);
-  }
-
-  return null;
-}
-
-export function findNextMoveHybrid(moves, boardSize) {
+export function findNextMoveWarnsdorff(moves, boardSize) {
   const parsed = validateMoveList(moves, boardSize);
   const visited = new Set(parsed.map((move) => move.key));
   const current = parsed[parsed.length - 1];
@@ -201,17 +171,87 @@ export function findNextMoveHybrid(moves, boardSize) {
   }
 
   const ranked = getWarnsdorffCandidates(current.key, visited, boardSize);
-  const directCandidate = ranked.find((candidate) => isFutureAccessible(candidate, visited.size, boardSize));
-  if (directCandidate) {
-    return keyOf(directCandidate.row, directCandidate.col);
+  return ranked[0]?.key || null;
+}
+
+function backtrackingSearch(current, visited, boardSize, nodeLimit, state) {
+  if (state.nodes > nodeLimit) {
+    return false;
   }
 
-  const nodeLimit = NODE_LIMITS[boardSize] || 3000000;
-  const state = { nodes: 0 };
-  const path = backtrackingFirstStep(current, visited, boardSize, nodeLimit, state);
-  if (!path || path.length === 0) {
+  if (visited.size === boardSize * boardSize) {
+    return true;
+  }
+
+  const candidates = getWarnsdorffCandidates(current.key, visited, boardSize)
+    .map((candidate) => ({
+      row: candidate.row,
+      col: candidate.col,
+      key: candidate.key,
+      moveOrder: candidate.moveOrder
+    }));
+
+  for (const candidate of candidates) {
+    if (state.nodes > nodeLimit) {
+      return false;
+    }
+
+    state.nodes += 1;
+    visited.add(candidate.key);
+
+    const nextNode = { row: candidate.row, col: candidate.col, key: candidate.key };
+    const solved = backtrackingSearch(nextNode, visited, boardSize, nodeLimit, state);
+    if (solved) {
+      return true;
+    }
+
+    visited.delete(candidate.key);
+  }
+
+  return false;
+}
+
+export function findNextMoveBacktracking(moves, boardSize) {
+  const parsed = validateMoveList(moves, boardSize);
+  const visited = new Set(parsed.map((move) => move.key));
+  const current = parsed[parsed.length - 1];
+
+  if (visited.size >= boardSize * boardSize) {
     return null;
   }
 
-  return path[0].key;
+  const nodeLimit = NODE_LIMITS[boardSize] || 3000000;
+  const firstMoves = getWarnsdorffCandidates(current.key, visited, boardSize)
+    .map((candidate) => ({
+      row: candidate.row,
+      col: candidate.col,
+      key: candidate.key,
+      moveOrder: candidate.moveOrder
+    }));
+
+  for (const firstMove of firstMoves) {
+    const state = { nodes: 0 };
+    visited.add(firstMove.key);
+    const solved = backtrackingSearch(
+      { row: firstMove.row, col: firstMove.col, key: firstMove.key },
+      visited,
+      boardSize,
+      nodeLimit,
+      state
+    );
+    visited.delete(firstMove.key);
+
+    if (solved) {
+      return firstMove.key;
+    }
+  }
+
+  return null;
+}
+
+export function findNextMoveByAlgorithm(algorithmType, moves, boardSize) {
+  if (algorithmType === 'BACKTRACKING') {
+    return findNextMoveBacktracking(moves, boardSize);
+  }
+  return findNextMoveWarnsdorff(moves, boardSize);
 }

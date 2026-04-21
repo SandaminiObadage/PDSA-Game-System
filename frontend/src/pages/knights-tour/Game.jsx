@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Board from '../../features/knights-tour/components/Board';
 import Controls from '../../features/knights-tour/components/Controls';
-import { findNextMoveHybrid, getWarnsdorffCandidates, validateMoveList } from '../../features/knights-tour/solver';
+import {
+  findNextMoveByAlgorithm,
+  getLegalCandidates,
+  getWarnsdorffCandidates,
+  validateMoveList
+} from '../../features/knights-tour/solver';
 
 function toOutcome(status, message, knightId, moveCount) {
   return { status, message, knightId, moveCount };
@@ -58,12 +63,25 @@ function Game() {
   const boardSize = game?.boardSize || 8;
   const current = moves[moves.length - 1];
   const visited = useMemo(() => new Set(moves), [moves]);
-  const legalCandidates = useMemo(() => {
+  const legalMoves = useMemo(() => {
     if (!current || !game) {
       return [];
     }
-    return getWarnsdorffCandidates(current, visited, boardSize);
+    return getLegalCandidates(current, visited, boardSize);
   }, [current, visited, boardSize, game]);
+
+  const visibleCandidates = useMemo(() => {
+    if (!game || !current) {
+      return [];
+    }
+
+    if (game.algorithmType !== 'BACKTRACKING') {
+      return getWarnsdorffCandidates(current, visited, boardSize);
+    }
+
+    // Backtracking hints are intentionally hidden to avoid running deep DFS on every re-render.
+    return [];
+  }, [game, current, boardSize, visited]);
 
   useEffect(() => {
     if (!game || !moves.length) {
@@ -75,10 +93,10 @@ function Game() {
       return;
     }
 
-    if (legalCandidates.length === 0) {
+    if (legalMoves.length === 0) {
       handleGameEnd('LOSE', 'No legal moves remain before covering all squares.');
     }
-  }, [moves, game, boardSize, legalCandidates.length]);
+  }, [moves, game, boardSize, legalMoves.length]);
 
   useEffect(() => {
     if (!autoRunning || !game || ended) {
@@ -102,7 +120,7 @@ function Game() {
   };
 
   const isLegalMove = (targetKey) => {
-    return legalCandidates.some((candidate) => candidate.key === targetKey);
+    return legalMoves.some((candidate) => candidate.key === targetKey);
   };
 
   const handleSquareClick = (row, col) => {
@@ -119,7 +137,7 @@ function Game() {
   const handleNextMove = () => {
     try {
       validateMoveList(moves, boardSize);
-      const next = findNextMoveHybrid(moves, boardSize);
+      const next = findNextMoveByAlgorithm(game.algorithmType, moves, boardSize);
       if (!next) {
         setAutoRunning(false);
         return;
@@ -164,7 +182,7 @@ function Game() {
       return;
     }
 
-    if (legalCandidates.length === 0) {
+    if (legalMoves.length === 0) {
       handleGameEnd('LOSE', 'No legal moves remain before covering all squares.');
       return;
     }
@@ -209,13 +227,13 @@ function Game() {
       <section className="grid-layout">
         <article className="panel">
           <h2>Board</h2>
-          <p className="info-chip">Moves: {moves.length} | Legal Moves: {legalCandidates.length}</p>
+          <p className="info-chip">Moves: {moves.length} | Legal Moves: {legalMoves.length}</p>
 
           <div className="kt-board-panel">
             <Board
               boardSize={boardSize}
               moves={moves}
-              candidates={legalCandidates}
+              candidates={visibleCandidates}
               onSquareClick={handleSquareClick}
               disabled={ended}
             />
