@@ -95,7 +95,7 @@ function Result() {
 
           <div className="kt-action-row">
             <button type="button" onClick={handleNewGame}>New Game</button>
-            <button type="button" onClick={() => navigate('/leaderboard')}>View Leaderboard</button>
+            <button type="button" onClick={() => navigate('/games/knights-tour/leaderboard')}>View Leaderboard</button>
           </div>
         </article>
       </section>
