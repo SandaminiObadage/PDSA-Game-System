@@ -393,7 +393,7 @@ function SixteenQueensPage() {
         <div>
           <button className="ghost-action" onClick={() => navigate('/')}>Back to dashboard</button>
           <p className="eyebrow">Sixteen Queens Experience</p>
-          <h1>Interactive 16x16 Queen Arena</h1>
+          <h1>Interactive Sixteen Queens' Puzzle</h1>
           <p className="hero-copy">
             Build a conflict-free queen layout with instant visual validation, then race the global leaderboard.
           </p>
@@ -407,6 +407,16 @@ function SixteenQueensPage() {
           </small>
         </div>
       </header>
+
+      <section className="game-instructions" aria-label="How to play Sixteen Queens">
+        <h3>How to Play</h3>
+        <ol>
+          <li>Place one queen in each row.</li>
+          <li>Make sure no queens attack each other.</li>
+          <li>Use Clear board if you want to restart quickly.</li>
+          <li>Submit when all 16 queens are safe.</li>
+        </ol>
+      </section>
 
       <section className="queens-grid">
         <article className="panel board-panel">

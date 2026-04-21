@@ -2,8 +2,7 @@
 package com.nibm.pdsa.games.minimumcost.algorithm;
 
 import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 @Service
 public class AlgorithmsService {
@@ -34,44 +33,74 @@ public class AlgorithmsService {
     // Hungarian algorithm (optimal using brute force for small n)
     public int hungarian(int[][] costMatrix) {
         int n = costMatrix.length;
-        List<int[]> permutations = generatePermutations(n);
-        int minCost = Integer.MAX_VALUE;
+        if (n == 0) {
+            return 0;
+        }
 
-        for (int[] perm : permutations) {
-            int cost = 0;
-            for (int i = 0; i < n; i++) {
-                cost += costMatrix[i][perm[i]];
-            }
-            if (cost < minCost) {
-                minCost = cost;
+        for (int[] row : costMatrix) {
+            if (row.length != n) {
+                throw new IllegalArgumentException("Cost matrix must be square");
             }
         }
-        return minCost;
-    }
 
-    private List<int[]> generatePermutations(int n) {
-        List<int[]> result = new ArrayList<>();
-        int[] arr = new int[n];
-        for (int i = 0; i < n; i++) arr[i] = i;
-        permute(arr, 0, result);
-        return result;
-    }
+        // O(n^3) Hungarian method for minimum cost bipartite matching.
+        int[] u = new int[n + 1];
+        int[] v = new int[n + 1];
+        int[] p = new int[n + 1];
+        int[] way = new int[n + 1];
 
-    private void permute(int[] arr, int start, List<int[]> result) {
-        if (start == arr.length - 1) {
-            result.add(arr.clone());
-            return;
+        for (int i = 1; i <= n; i++) {
+            p[0] = i;
+            int j0 = 0;
+            int[] minv = new int[n + 1];
+            boolean[] used = new boolean[n + 1];
+            Arrays.fill(minv, Integer.MAX_VALUE / 4);
+
+            do {
+                used[j0] = true;
+                int i0 = p[j0];
+                int delta = Integer.MAX_VALUE / 4;
+                int j1 = 0;
+
+                for (int j = 1; j <= n; j++) {
+                    if (used[j]) {
+                        continue;
+                    }
+                    int cur = costMatrix[i0 - 1][j - 1] - u[i0] - v[j];
+                    if (cur < minv[j]) {
+                        minv[j] = cur;
+                        way[j] = j0;
+                    }
+                    if (minv[j] < delta) {
+                        delta = minv[j];
+                        j1 = j;
+                    }
+                }
+
+                for (int j = 0; j <= n; j++) {
+                    if (used[j]) {
+                        u[p[j]] += delta;
+                        v[j] -= delta;
+                    } else {
+                        minv[j] -= delta;
+                    }
+                }
+                j0 = j1;
+            } while (p[j0] != 0);
+
+            do {
+                int j1 = way[j0];
+                p[j0] = p[j1];
+                j0 = j1;
+            } while (j0 != 0);
         }
-        for (int i = start; i < arr.length; i++) {
-            swap(arr, start, i);
-            permute(arr, start + 1, result);
-            swap(arr, start, i);
-        }
-    }
 
-    private void swap(int[] arr, int i, int j) {
-        int temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
+        int totalCost = 0;
+        for (int j = 1; j <= n; j++) {
+            int worker = p[j] - 1;
+            int task = j - 1;
+            totalCost += costMatrix[worker][task];
+        }
+        return totalCost;
     }
 }
