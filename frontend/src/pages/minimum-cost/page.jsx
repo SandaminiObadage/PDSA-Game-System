@@ -210,6 +210,15 @@ function MinimumCost() {
               placeholder="Task count"
               disabled={useRandomTaskCount}
             />
+            <div style={{ marginTop: "12px", textAlign: "left", fontSize: "14px" }}>
+              <h3 style={{ margin: "0 0 8px 0" }}>How to Play</h3>
+              <p style={{ margin: "4px 0" }}>1. One task per employee.</p>
+              <p style={{ margin: "4px 0" }}>2. Each task can be used once only.</p>
+              <p style={{ margin: "4px 0" }}>3. Pick the lowest total cost before time ends.</p>
+              <p style={{ margin: "6px 0 0 0", opacity: 0.85 }}>
+                Tip: Hungarian is optimal; Greedy is faster but may cost more.
+              </p>
+            </div>
             <button onClick={startGame} disabled={!name.trim()}>
               Play
             </button>
@@ -340,33 +349,37 @@ function MinimumCost() {
       {/* LEADERBOARD */}
       {step === "leaderboard" && (
         <div className="home">
-          <h1>🏆 Recent Results</h1>
+          <h1>🏆 Leaderboard</h1>
           <div className="card" style={{ maxHeight: "400px", overflowY: "auto" }}>
             {leaderboard.length > 0 ? (
               <table style={{ width: "100%", textAlign: "left", fontSize: "14px" }}>
                 <thead>
                   <tr style={{ borderBottom: "2px solid #333" }}>
+                    <th>Rank</th>
                     <th>Player</th>
-                    <th>Optimal Cost</th>
-                    <th>Selected Cost</th>
-                    <th>Time Left</th>
-                    <th>Result</th>
+                    <th>Score</th>
+                    <th>Correct</th>
+                    <th>Games</th>
+                    <th>Accuracy</th>
+                    <th>Avg Time Left</th>
                   </tr>
                 </thead>
                 <tbody>
                   {leaderboard.map((result, i) => (
-                    <tr key={result.id} style={{ borderBottom: "1px solid #ddd", padding: "8px" }}>
+                    <tr key={`${result.playerName}-${i}`} style={{ borderBottom: "1px solid #ddd", padding: "8px" }}>
+                      <td>#{result.rank ?? i + 1}</td>
                       <td>{result.playerName}</td>
-                      <td>${result.correctCost}</td>
-                      <td>${result.selectedCost}</td>
-                      <td>{result.timeRemaining}s</td>
-                      <td>{result.isCorrect ? "✅ Correct" : "❌ Wrong"}</td>
+                      <td>{result.totalScore ?? 0}</td>
+                      <td>{result.correctAnswers ?? 0}</td>
+                      <td>{result.gamesPlayed ?? 0}</td>
+                      <td>{result.accuracy ?? "0.0%"}</td>
+                      <td>{result.averageTimeRemaining ?? "0.0"}s</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <p>No results yet! Be the first to play. 🚀</p>
+              <p>No leaderboard data yet. Play a few rounds to create rankings. 🚀</p>
             )}
           </div>
           <button onClick={() => setStep("home")} style={{ marginTop: "20px" }}>

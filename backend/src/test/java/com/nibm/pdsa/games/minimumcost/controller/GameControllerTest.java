@@ -205,16 +205,16 @@ class GameControllerTest {
     }
 
     @Test
-    @DisplayName("getLeaderboard() should return top winning results")
+    @DisplayName("getLeaderboard() should return ranked player leaderboard")
     void testGetLeaderboard() {
-        List<Player> winners = new ArrayList<>();
-        for (int i = 1; i <= 5; i++) {
-            Player player = new Player("Winner" + i, 40, 40, 100 + i * 10, true);
-            player.setId((long) i);
-            winners.add(player);
-        }
+        List<Player> allResults = new ArrayList<>();
+        allResults.add(new Player("Alice", 40, 40, 9, true));
+        allResults.add(new Player("Alice", 45, 45, 8, true));
+        allResults.add(new Player("Bob", 40, 40, 6, true));
+        allResults.add(new Player("Bob", 40, 50, 4, false));
+        allResults.add(new Player("Cara", 40, 50, 5, false));
 
-        when(playerRepository.findAllWinningResults()).thenReturn(winners);
+        when(playerRepository.findAllResults()).thenReturn(allResults);
 
         Map<String, Object> response = gameController.getLeaderboard(20);
         
@@ -223,24 +223,29 @@ class GameControllerTest {
         assertTrue(response.containsKey("total"));
         assertTrue(response.containsKey("message"));
         
-        assertEquals(5, response.get("total"));
+        assertEquals(3, response.get("total"));
         List<?> results = (List<?>) response.get("results");
-        assertEquals(5, results.size());
+        assertEquals(3, results.size());
 
-        verify(playerRepository, times(1)).findAllWinningResults();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> top = (Map<String, Object>) results.get(0);
+        assertEquals("Alice", top.get("playerName"));
+        assertEquals(20, top.get("totalScore"));
+
+        verify(playerRepository, times(1)).findAllResults();
     }
 
     @Test
     @DisplayName("getLeaderboard() should respect limit parameter")
     void testGetLeaderboardWithLimit() {
-        List<Player> winners = new ArrayList<>();
+        List<Player> allResults = new ArrayList<>();
         for (int i = 1; i <= 20; i++) {
             Player player = new Player("Winner" + i, 40, 40, 100, true);
             player.setId((long) i);
-            winners.add(player);
+            allResults.add(player);
         }
 
-        when(playerRepository.findAllWinningResults()).thenReturn(winners);
+        when(playerRepository.findAllResults()).thenReturn(allResults);
 
         Map<String, Object> response = gameController.getLeaderboard(10);
         
@@ -249,13 +254,13 @@ class GameControllerTest {
         assertEquals(10, results.size());
         assertEquals(10, response.get("total"));
 
-        verify(playerRepository, times(1)).findAllWinningResults();
+        verify(playerRepository, times(1)).findAllResults();
     }
 
     @Test
     @DisplayName("getLeaderboard() should return empty list when no results")
     void testGetLeaderboardEmpty() {
-        when(playerRepository.findAllWinningResults()).thenReturn(new ArrayList<>());
+        when(playerRepository.findAllResults()).thenReturn(new ArrayList<>());
 
         Map<String, Object> response = gameController.getLeaderboard(20);
         
@@ -264,7 +269,7 @@ class GameControllerTest {
         assertEquals(0, results.size());
         assertEquals(0, response.get("total"));
 
-        verify(playerRepository, times(1)).findAllWinningResults();
+        verify(playerRepository, times(1)).findAllResults();
     }
 
     @Test

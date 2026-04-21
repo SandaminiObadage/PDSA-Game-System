@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,18 +106,56 @@ public class GameController {
     @GetMapping("/leaderboard")
     public Map<String, Object> getLeaderboard(
             @RequestParam(defaultValue = "20") int limit) {
-        
-        List<Player> winningResults = playerRepository.findAllWinningResults();
-        
-        // Limit the results
-        if (winningResults.size() > limit) {
-            winningResults = winningResults.subList(0, limit);
+
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        List<Player> allResults = playerRepository.findAllResults();
+
+        Map<String, LeaderboardStats> statsByPlayer = new HashMap<>();
+        for (Player result : allResults) {
+            String playerName = result.getPlayerName() == null ? "Unknown" : result.getPlayerName().trim();
+            if (playerName.isEmpty()) {
+                playerName = "Unknown";
+            }
+
+            LeaderboardStats stats = statsByPlayer.computeIfAbsent(playerName, LeaderboardStats::new);
+            stats.gamesPlayed++;
+            stats.totalTimeRemaining += Math.max(0, result.getTimeRemaining());
+            stats.lastTimestamp = Math.max(stats.lastTimestamp, result.getTimestamp());
+
+            if (result.isCorrect()) {
+                stats.correctAnswers++;
+                stats.totalScore += 10;
+            }
+        }
+
+        List<LeaderboardStats> sorted = new ArrayList<>(statsByPlayer.values());
+        sorted.sort(
+                Comparator.comparingInt(LeaderboardStats::getTotalScore).reversed()
+                        .thenComparingInt(LeaderboardStats::getCorrectAnswers).reversed()
+                        .thenComparingDouble(LeaderboardStats::getAccuracy).reversed()
+                        .thenComparingDouble(LeaderboardStats::getAverageTimeRemaining).reversed()
+                        .thenComparingLong(LeaderboardStats::getLastTimestamp).reversed()
+        );
+
+        List<Map<String, Object>> leaderboardRows = new ArrayList<>();
+        for (int i = 0; i < Math.min(safeLimit, sorted.size()); i++) {
+            LeaderboardStats stats = sorted.get(i);
+            Map<String, Object> row = new HashMap<>();
+            row.put("rank", i + 1);
+            row.put("playerName", stats.playerName);
+            row.put("gamesPlayed", stats.gamesPlayed);
+            row.put("correctAnswers", stats.correctAnswers);
+            row.put("totalScore", stats.totalScore);
+            row.put("accuracy", String.format("%.1f%%", stats.getAccuracy()));
+            row.put("averageTimeRemaining", String.format("%.1f", stats.getAverageTimeRemaining()));
+            row.put("lastPlayed", stats.lastTimestamp);
+            leaderboardRows.add(row);
         }
         
         Map<String, Object> response = new HashMap<>();
-        response.put("results", winningResults);
-        response.put("total", winningResults.size());
-        response.put("message", "Top " + limit + " winning results");
+        response.put("results", leaderboardRows);
+        response.put("total", leaderboardRows.size());
+        response.put("message", "Top " + safeLimit + " players by score and accuracy");
         
         return response;
     }
@@ -264,6 +304,45 @@ public class GameController {
             return roundId;
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    private static class LeaderboardStats {
+        private final String playerName;
+        private int gamesPlayed;
+        private int correctAnswers;
+        private int totalScore;
+        private long totalTimeRemaining;
+        private long lastTimestamp;
+
+        private LeaderboardStats(String playerName) {
+            this.playerName = playerName;
+        }
+
+        private int getTotalScore() {
+            return totalScore;
+        }
+
+        private int getCorrectAnswers() {
+            return correctAnswers;
+        }
+
+        private long getLastTimestamp() {
+            return lastTimestamp;
+        }
+
+        private double getAccuracy() {
+            if (gamesPlayed == 0) {
+                return 0;
+            }
+            return ((double) correctAnswers / gamesPlayed) * 100.0;
+        }
+
+        private double getAverageTimeRemaining() {
+            if (gamesPlayed == 0) {
+                return 0;
+            }
+            return (double) totalTimeRemaining / gamesPlayed;
         }
     }
 }
