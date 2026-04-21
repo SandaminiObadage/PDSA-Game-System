@@ -13,7 +13,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "game_results")
+@Table(name = "knight_game_results")
 public class GameResult {
 
     @Id
