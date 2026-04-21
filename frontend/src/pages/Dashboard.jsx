@@ -25,7 +25,7 @@ const GAMES = [
   },
   {
     id: 'snake-ladder',
-    name: 'Snake & Ladder',
+    name: 'Snake and Ladder Game Problem',
     description: 'Race to the finish! Navigate the board avoiding snakes and climbing ladders.',
     icon: '🎲',
     color: '#f59e0b'
