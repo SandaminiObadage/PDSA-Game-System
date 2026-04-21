@@ -8,8 +8,28 @@ const client = axios.create({
   }
 });
 
+async function requestWithRetry(factory, retries = 1) {
+  let attempt = 0;
+  let lastError;
+
+  while (attempt <= retries) {
+    try {
+      return await factory();
+    } catch (error) {
+      lastError = error;
+      const shouldRetry = !error?.response || error?.code === 'ECONNABORTED';
+      if (!shouldRetry || attempt === retries) {
+        throw error;
+      }
+    }
+    attempt += 1;
+  }
+
+  throw lastError;
+}
+
 export async function solveSixteenQueens(payload) {
-  const response = await client.post('/solve', payload);
+  const response = await requestWithRetry(() => client.post('/solve', payload), 1);
   return response.data;
 }
 
@@ -17,39 +37,39 @@ export async function fetchSixteenQueensSamples(roundId, limit = 8, viewerRole =
   const query = roundId
     ? `/samples?roundId=${roundId}&limit=${limit}&viewerRole=${encodeURIComponent(viewerRole)}`
     : `/samples?limit=${limit}&viewerRole=${encodeURIComponent(viewerRole)}`;
-  const response = await client.get(query);
+  const response = await requestWithRetry(() => client.get(query), 1);
   return response.data;
 }
 
 export async function closeSixteenQueensRound(roundId) {
   const query = roundId ? `/close-round?roundId=${roundId}` : '/close-round';
-  const response = await client.post(query);
+  const response = await requestWithRetry(() => client.post(query), 1);
   return response.data;
 }
 
 export async function submitSixteenQueens(payload) {
-  const response = await client.post('/submit', payload);
+  const response = await requestWithRetry(() => client.post('/submit', payload), 1);
   return response.data;
 }
 
 export async function fetchSixteenQueensHistory(limit = 10) {
-  const response = await client.get(`/history?limit=${limit}`);
+  const response = await requestWithRetry(() => client.get(`/history?limit=${limit}`), 1);
   return response.data;
 }
 
 export async function fetchSixteenQueensLeaderboard(limit = 10, roundId) {
   const query = roundId ? `/leaderboard?limit=${limit}&roundId=${roundId}` : `/leaderboard?limit=${limit}`;
-  const response = await client.get(query);
+  const response = await requestWithRetry(() => client.get(query), 1);
   return response.data;
 }
 
 export async function fetchSixteenQueensReport() {
-  const response = await client.get('/report');
+  const response = await requestWithRetry(() => client.get('/report'), 1);
   return response.data;
 }
 
 export async function resetSixteenQueensRecognized(roundId) {
   const query = roundId ? `/reset-recognized?roundId=${roundId}` : '/reset-recognized';
-  const response = await client.post(query);
+  const response = await requestWithRetry(() => client.post(query), 1);
   return response.data;
 }
