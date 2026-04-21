@@ -7,7 +7,7 @@ function GameNotAvailable() {
   const gameNames = {
     'sixteen-queens': 'Sixteen Queens\' Puzzle',
     'knights-tour': 'Knights Tour',
-    'minimum-cost': 'Minimum Cost Path',
+    'minimum-cost': 'Minimum Cost',
     'snake-ladder': 'Snake & Ladder',
     'traffic-simulation': 'Traffic Simulation'
   };

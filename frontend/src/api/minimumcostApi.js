@@ -9,8 +9,9 @@ const client = axios.create({
 });
 
 // Get a new game matrix and costs
-export async function getMinimumCostGame() {
-  const response = await client.get('/game');
+export async function getMinimumCostGame(taskCount) {
+  const query = Number.isFinite(taskCount) ? `?tasks=${taskCount}` : '';
+  const response = await client.get(`/game${query}`);
   return response.data;
 }
 

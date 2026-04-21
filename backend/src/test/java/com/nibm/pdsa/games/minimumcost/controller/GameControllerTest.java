@@ -63,54 +63,83 @@ class GameControllerTest {
         when(algorithmsService.greedy(any(int[][].class))).thenReturn(greedyCost);
         when(algorithmsService.hungarian(any(int[][].class))).thenReturn(hungarianCost);
 
-        Map<String, Object> response = gameController.getGameData();
+        Map<String, Object> response = gameController.getGameData(null);
         
         assertNotNull(response);
         assertTrue(response.containsKey("matrix"));
         assertTrue(response.containsKey("greedyCost"));
         assertTrue(response.containsKey("hungarianCost"));
         assertTrue(response.containsKey("matrixSize"));
+        assertTrue(response.containsKey("taskCount"));
+        assertTrue(response.containsKey("greedyExecutionTimeMs"));
+        assertTrue(response.containsKey("hungarianExecutionTimeMs"));
         
         assertEquals(greedyCost, response.get("greedyCost"));
         assertEquals(hungarianCost, response.get("hungarianCost"));
-        assertEquals(4, response.get("matrixSize"));
+        int matrixSize = (int) response.get("matrixSize");
+        assertTrue(matrixSize >= 50 && matrixSize <= 100);
+        assertEquals(matrixSize, response.get("taskCount"));
 
         verify(algorithmsService, times(1)).greedy(any(int[][].class));
         verify(algorithmsService, times(1)).hungarian(any(int[][].class));
     }
 
     @Test
-    @DisplayName("getGameData() should return 4x4 matrix")
+    @DisplayName("getGameData() should return NxN matrix where N is 50-100")
     void testGameMatrixDimensions() {
         when(algorithmsService.greedy(any(int[][].class))).thenReturn(50);
         when(algorithmsService.hungarian(any(int[][].class))).thenReturn(40);
 
-        Map<String, Object> response = gameController.getGameData();
+        Map<String, Object> response = gameController.getGameData(null);
         int[][] matrix = (int[][]) response.get("matrix");
+        int matrixSize = (int) response.get("matrixSize");
         
         assertNotNull(matrix);
-        assertEquals(4, matrix.length);
+        assertTrue(matrixSize >= 50 && matrixSize <= 100);
+        assertEquals(matrixSize, matrix.length);
         for (int[] row : matrix) {
-            assertEquals(4, row.length);
+            assertEquals(matrixSize, row.length);
         }
     }
 
     @Test
-    @DisplayName("getGameData() matrix values should be within 10-99 range")
+    @DisplayName("getGameData() matrix values should be within 20-200 range")
     void testGameMatrixValuesInRange() {
         when(algorithmsService.greedy(any(int[][].class))).thenReturn(50);
         when(algorithmsService.hungarian(any(int[][].class))).thenReturn(40);
 
-        Map<String, Object> response = gameController.getGameData();
+        Map<String, Object> response = gameController.getGameData(null);
         int[][] matrix = (int[][]) response.get("matrix");
         
         assertNotNull(matrix);
         for (int[] row : matrix) {
             for (int value : row) {
-                assertTrue(value >= 10 && value <= 99, 
-                    "Matrix value " + value + " is out of range [10, 99]");
+                assertTrue(value >= 20 && value <= 200,
+                    "Matrix value " + value + " is out of range [20, 200]");
             }
         }
+    }
+
+    @Test
+    @DisplayName("getGameData(tasks) should respect provided task count")
+    void testGetGameDataWithExplicitTaskCount() {
+        when(algorithmsService.greedy(any(int[][].class))).thenReturn(50);
+        when(algorithmsService.hungarian(any(int[][].class))).thenReturn(40);
+
+        Map<String, Object> response = gameController.getGameData(64);
+        int[][] matrix = (int[][]) response.get("matrix");
+
+        assertEquals(64, response.get("matrixSize"));
+        assertEquals(64, response.get("taskCount"));
+        assertEquals(64, matrix.length);
+        assertEquals(64, matrix[0].length);
+    }
+
+    @Test
+    @DisplayName("getGameData(tasks) should reject out-of-range task count")
+    void testGetGameDataRejectsInvalidTaskCount() {
+        assertThrows(IllegalArgumentException.class, () -> gameController.getGameData(101));
+        assertThrows(IllegalArgumentException.class, () -> gameController.getGameData(49));
     }
 
     @Test

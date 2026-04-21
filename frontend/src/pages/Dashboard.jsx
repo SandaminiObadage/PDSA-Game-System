@@ -18,8 +18,8 @@ const GAMES = [
   },
   {
     id: 'minimum-cost',
-    name: 'Minimum Cost Path',
-    description: 'Find the path from top-left to bottom-right with minimum cost using dynamic programming.',
+    name: 'Minimum Cost',
+    description: 'Assign N tasks to N employees to minimize total assignment cost using algorithmic strategies.',
     icon: '💰',
     color: '#ec4899'
   },
