@@ -209,11 +209,11 @@ public class SixteenQueensService {
                 return response;
             }
 
-            String solutionHash = scopeSolutionHash(gameRoundId, canonical);
+            String solutionHash = sha256(canonical);
 
             if (repository.isActiveRecognized(gameTypeId, solutionHash)) {
                 response.setAlreadyRecognized(true);
-                response.setMessage("Correct, but this solution has already been recognized. Try a new one.");
+                response.setMessage(buildDuplicateMessageForGame(gameTypeId, gameRoundId));
                 return response;
             }
 
@@ -221,9 +221,9 @@ public class SixteenQueensService {
 
             Long expectedTotal = repository.getExpectedTotalSolutionsForRound(gameRoundId);
             if (expectedTotal != null && expectedTotal > 0) {
-                long activeCount = repository.countActiveRecognizedForRound(gameTypeId, gameRoundId);
+                long activeCount = repository.countActiveRecognized(gameTypeId);
                 if (activeCount >= expectedTotal) {
-                    repository.clearActiveRecognizedForRound(gameTypeId, gameRoundId);
+                    repository.clearActiveRecognized(gameTypeId);
                 }
             }
 
@@ -240,7 +240,7 @@ public class SixteenQueensService {
 
         if (recognizedSolutions.contains(canonical)) {
             response.setAlreadyRecognized(true);
-            response.setMessage("Correct, but this solution has already been recognized. Try a new one.");
+            response.setMessage("Correct, but this solution has already been recognized. Try another arrangement until all solutions are recognized.");
             return response;
         }
 
@@ -346,6 +346,26 @@ public class SixteenQueensService {
 
     private String scopeSolutionHash(long gameRoundId, String solution) {
         return gameRoundId + ":" + sha256(solution);
+    }
+
+    private String buildDuplicateMessageForGame(long gameTypeId, long gameRoundId) {
+        Long expectedTotal = repository.getExpectedTotalSolutionsForRound(gameRoundId);
+        if (expectedTotal == null || expectedTotal <= 0) {
+            return "Correct, but this solution has already been recognized. Try another arrangement until all solutions are recognized.";
+        }
+
+        long activeCount = repository.countActiveRecognized(gameTypeId);
+        long remaining = Math.max(expectedTotal - activeCount, 0);
+
+        if (remaining == 0) {
+            return "Correct, but this solution has already been recognized. All target solutions are already recognized for this cycle.";
+        }
+
+        return "Correct, but this solution has already been recognized. Try another arrangement until all "
+            + expectedTotal
+            + " solutions are recognized ("
+            + remaining
+            + " remaining).";
     }
 
     private boolean canViewSamplesForRound(long gameRoundId, String viewerRole) {

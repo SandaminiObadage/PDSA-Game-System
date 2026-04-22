@@ -245,7 +245,7 @@ function SixteenQueensPage() {
         pushToast({
           tone: 'warning',
           title: 'Already discovered',
-          message: 'This valid solution was already recognized. Try another arrangement!'
+          message: data.message || 'This valid solution was already recognized. Try another arrangement!'
         });
         return;
       }
@@ -256,6 +256,12 @@ function SixteenQueensPage() {
       pushToast({ tone: 'success', title: 'Unique solution found', message: 'Your answer is now recognized globally.' });
       await checkAllCompleted();
       await Promise.all([loadHistory(), loadLeaderboard(), loadAllRoundsLeaderboard()]);
+
+      clearBoard();
+      updateSubmitForm({ playerName: '', gameRoundId: '' });
+      setApiData('submitResult', null);
+      setApiData('selectedSampleIndex', 0);
+      setStatusMessage('Ready for the next player.');
     });
   };
 
