@@ -8,27 +8,25 @@ import com.nibm.pdsa.games.knightstour.dto.StartGameResponse;
 import com.nibm.pdsa.games.knightstour.dto.ValidateGameRequest;
 import com.nibm.pdsa.games.knightstour.dto.ValidateGameResponse;
 import com.nibm.pdsa.games.knightstour.entity.AlgorithmType;
-import com.nibm.pdsa.games.knightstour.entity.GameResult;
-import com.nibm.pdsa.games.knightstour.entity.Knight;
 import com.nibm.pdsa.games.knightstour.entity.OutcomeStatus;
-import com.nibm.pdsa.games.knightstour.entity.Player;
 import com.nibm.pdsa.games.knightstour.exception.BadRequestException;
 import com.nibm.pdsa.games.knightstour.exception.ResourceNotFoundException;
-import com.nibm.pdsa.games.knightstour.repository.GameResultRepository;
-import com.nibm.pdsa.games.knightstour.repository.KnightRepository;
-import com.nibm.pdsa.games.knightstour.repository.KnightTourPlayerRepository;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -38,21 +36,18 @@ public class KnightGameService {
     private static final String WIN_MESSAGE = "Congratulations! Valid full knight tour.";
     private static final String LOSE_MESSAGE = "No legal moves remain before covering all squares.";
     private static final String DRAW_MESSAGE = "Game ended as a draw.";
+    private static final String GAME_CODE = "KNIGHTS_TOUR";
+    private static final String START_POSITION_KEY = "startPosition";
+    private static final String KNIGHTS_TOUR_VARIANT = "DEFAULT";
 
-    private final KnightRepository knightRepository;
-    private final KnightTourPlayerRepository playerRepository;
-    private final GameResultRepository gameResultRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
     public KnightGameService(
-            KnightRepository knightRepository,
-            KnightTourPlayerRepository playerRepository,
-            GameResultRepository gameResultRepository,
+            JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper
     ) {
-        this.knightRepository = knightRepository;
-        this.playerRepository = playerRepository;
-        this.gameResultRepository = gameResultRepository;
+        this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
 
@@ -60,69 +55,87 @@ public class KnightGameService {
     public StartGameResponse startGame(StartGameRequest request) {
         validateBoardSize(request.getBoardSize());
 
+        long algorithmStartNanos = System.nanoTime();
         int boardSize = request.getBoardSize();
         int startRow = ThreadLocalRandom.current().nextInt(boardSize);
         int startCol = ThreadLocalRandom.current().nextInt(boardSize);
         AlgorithmType algorithmType = resolveAlgorithmType(request.getAlgorithmType());
+        String startPosition = toPosition(startRow, startCol);
 
-        Knight knight = new Knight();
-        knight.setBoardSize(boardSize);
-        knight.setStartPosition(toPosition(startRow, startCol));
-        knight.setAlgorithmType(algorithmType);
-        Knight saved = knightRepository.save(knight);
+        long roundId = createRound(boardSize, startPosition);
+        double executionTimeMs = toExecutionTimeMs(System.nanoTime() - algorithmStartNanos);
+        saveAlgorithmRun(roundId, algorithmType.name(), startPosition, executionTimeMs);
 
         StartGameResponse response = new StartGameResponse();
-        response.setKnightId(saved.getId());
-        response.setStartPosition(saved.getStartPosition());
-        response.setAlgorithmType(saved.getAlgorithmType().name());
+        response.setKnightId(roundId);
+        response.setStartPosition(startPosition);
+        response.setAlgorithmType(algorithmType.name());
         return response;
     }
 
     @Transactional
     public ValidateGameResponse validateGame(ValidateGameRequest request) {
-        Knight knight = knightRepository.findById(request.getKnightId())
-                .orElseThrow(() -> new ResourceNotFoundException("Knight not found for id " + request.getKnightId()));
-
-        Player player = getOrCreatePlayer(request.getPlayerName().trim());
+        RoundContext round = getRoundContext(request.getKnightId());
+        long playerId = ensurePlayerAndGetId(request.getPlayerName().trim());
 
         OutcomeStatus status;
         String message;
 
-        if (!knight.getStartPosition().equals(request.getMoves().get(0))) {
+        if (!round.startPosition().equals(request.getMoves().get(0))) {
             status = OutcomeStatus.LOSE;
             message = "First move must match the stored start position.";
-            persistResult(player, knight, request.getMoves(), status);
+            savePlayerAnswer(request.getKnightId(), playerId, request.getMoves(), status, message);
             return buildValidationResponse(status, message);
         }
 
         try {
-            EvaluationResult evaluationResult = evaluateMoves(request.getMoves(), knight.getBoardSize());
+            EvaluationResult evaluationResult = evaluateMoves(request.getMoves(), round.boardSize());
             status = evaluationResult.status();
             message = status == OutcomeStatus.WIN ? WIN_MESSAGE : LOSE_MESSAGE;
         } catch (BadRequestException ex) {
             status = OutcomeStatus.LOSE;
             message = ex.getMessage();
-            persistResult(player, knight, request.getMoves(), status);
+            savePlayerAnswer(request.getKnightId(), playerId, request.getMoves(), status, message);
             return buildValidationResponse(status, message);
         }
 
         OutcomeStatus finalStatus = applyOverride(status, request.getOutcomeOverride());
         String finalMessage = resolveMessage(finalStatus, request.getOutcomeMessage(), message);
 
-        persistResult(player, knight, request.getMoves(), finalStatus);
+        savePlayerAnswer(request.getKnightId(), playerId, request.getMoves(), finalStatus, finalMessage);
         return buildValidationResponse(finalStatus, finalMessage);
     }
 
     @Transactional(readOnly = true)
     public List<LeaderboardEntryResponse> getLeaderboard() {
-        List<GameResult> results = gameResultRepository.findAllByOrderByCreatedAtDesc();
+        Long gameTypeId = findGameTypeIdByCode(GAME_CODE);
+        if (gameTypeId == null) {
+            return List.of();
+        }
+
+        List<AnswerRow> results = jdbcTemplate.query(
+                """
+                SELECT p.player_name AS player_name, pa.answer_json AS answer_json, pa.is_correct AS is_correct
+                FROM player_answers pa
+                JOIN players p ON p.id = pa.player_id
+                JOIN game_rounds gr ON gr.id = pa.game_round_id
+                WHERE gr.game_type_id = ?
+                ORDER BY pa.submitted_at DESC
+                """,
+                (rs, rowNum) -> new AnswerRow(
+                        rs.getString("player_name"),
+                        rs.getString("answer_json"),
+                        rs.getInt("is_correct") == 1
+                ),
+                gameTypeId
+        );
 
         Map<String, Stats> statsByPlayer = new HashMap<>();
-        for (GameResult result : results) {
-            String playerName = result.getPlayer().getName();
+        for (AnswerRow result : results) {
+            String playerName = result.playerName();
             Stats stats = statsByPlayer.computeIfAbsent(playerName, key -> new Stats());
-            stats.mostMoves = Math.max(stats.mostMoves, parseMoveCount(result.getMoves()));
-            if (result.isWin()) {
+            stats.mostMoves = Math.max(stats.mostMoves, parseMoveCountFromAnswerJson(result.answerJson()));
+            if (result.correct()) {
                 stats.wins++;
                 stats.hasWin = true;
             }
@@ -174,41 +187,170 @@ public class KnightGameService {
         return new EvaluationResult(OutcomeStatus.LOSE);
     }
 
-    private Player getOrCreatePlayer(String playerName) {
-        Optional<Player> existing = playerRepository.findByName(playerName);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        Player player = new Player();
-        player.setName(playerName);
-        return playerRepository.save(player);
-    }
-
-    private void persistResult(Player player, Knight knight, List<String> moves, OutcomeStatus status) {
-        GameResult result = new GameResult();
-        result.setPlayer(player);
-        result.setKnight(knight);
-        result.setMoves(toMovesJson(moves));
-        result.setWin(status == OutcomeStatus.WIN);
-        gameResultRepository.save(result);
-    }
-
-    private String toMovesJson(List<String> moves) {
+    private int parseMoveCountFromAnswerJson(String answerJson) {
         try {
-            return objectMapper.writeValueAsString(moves);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Failed to serialize moves", ex);
-        }
-    }
+            Map<?, ?> payload = objectMapper.readValue(answerJson, Map.class);
+            Object moveCount = payload.get("moveCount");
+            if (moveCount instanceof Number number) {
+                return number.intValue();
+            }
 
-    private int parseMoveCount(String movesJson) {
-        try {
-            List<?> values = objectMapper.readValue(movesJson, List.class);
-            return values.size();
+            Object moves = payload.get("moves");
+            if (moves instanceof List<?> list) {
+                return list.size();
+            }
+
+            return 0;
         } catch (JsonProcessingException ex) {
             return 0;
         }
+    }
+
+    private Long findGameTypeIdByCode(String code) {
+        return jdbcTemplate.query(
+                "SELECT id FROM game_types WHERE code = ?",
+                rs -> rs.next() ? rs.getLong("id") : null,
+                code
+        );
+    }
+
+    private long createRound(int boardSize, String startPosition) {
+        Long gameTypeId = findGameTypeIdByCode(GAME_CODE);
+        if (gameTypeId == null) {
+            throw new IllegalStateException("Game type KNIGHTS_TOUR not found");
+        }
+
+        Long nextRoundNo = jdbcTemplate.query(
+                "SELECT COALESCE(MAX(round_no), 0) AS max_round FROM game_rounds WHERE game_type_id = ?",
+            rs -> rs.next() ? rs.getLong("max_round") + 1 : null,
+                gameTypeId
+        );
+        final long nextRoundNoValue = nextRoundNo == null ? 1L : nextRoundNo;
+
+        String inputJson;
+        try {
+            inputJson = objectMapper.writeValueAsString(Map.of(
+                    "boardSize", boardSize,
+                    START_POSITION_KEY, startPosition
+            ));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize round input", ex);
+        }
+
+        String expectedJson = String.valueOf(boardSize * boardSize);
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO game_rounds (game_type_id, round_no, round_input_json, expected_output_json) VALUES (?, ?, ?, ?)",
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            ps.setLong(1, gameTypeId);
+                ps.setLong(2, nextRoundNoValue);
+            ps.setString(3, inputJson);
+            ps.setString(4, expectedJson);
+            return ps;
+        }, keyHolder);
+
+        Number id = keyHolder.getKey();
+        if (id == null) {
+            throw new IllegalStateException("Failed to create knights tour round");
+        }
+
+        return id.longValue();
+    }
+
+    private void saveAlgorithmRun(long roundId, String algorithmName, String startPosition, double executionTimeMs) {
+        String resultJson;
+        try {
+            resultJson = objectMapper.writeValueAsString(Map.of(
+                    START_POSITION_KEY, startPosition
+            ));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize algorithm result", ex);
+        }
+
+        int changed = jdbcTemplate.update(
+                "INSERT OR REPLACE INTO algorithm_runs (game_round_id, algorithm_name, algorithm_variant, execution_time_ms, result_json) VALUES (?, ?, ?, ?, ?)",
+                roundId,
+                algorithmName,
+                KNIGHTS_TOUR_VARIANT,
+                executionTimeMs,
+                resultJson
+        );
+
+        if (changed <= 0) {
+            throw new IllegalStateException("Failed to persist algorithm run for round " + roundId);
+        }
+    }
+
+    private RoundContext getRoundContext(Long roundId) {
+        Long gameTypeId = findGameTypeIdByCode(GAME_CODE);
+        if (gameTypeId == null) {
+            throw new ResourceNotFoundException("Game type KNIGHTS_TOUR not found");
+        }
+
+        String inputJson = jdbcTemplate.query(
+                "SELECT round_input_json FROM game_rounds WHERE id = ? AND game_type_id = ?",
+                rs -> rs.next() ? rs.getString("round_input_json") : null,
+                roundId,
+                gameTypeId
+        );
+
+        if (inputJson == null) {
+            throw new ResourceNotFoundException("Knight round not found for id " + roundId);
+        }
+
+        try {
+            Map<?, ?> payload = objectMapper.readValue(inputJson, Map.class);
+            Object boardSizeValue = payload.get("boardSize");
+            Object startPositionValue = payload.get(START_POSITION_KEY);
+
+            if (!(boardSizeValue instanceof Number) || !(startPositionValue instanceof String)) {
+                throw new IllegalStateException("Invalid round input data");
+            }
+
+            return new RoundContext(((Number) boardSizeValue).intValue(), (String) startPositionValue);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to parse round input data", ex);
+        }
+    }
+
+    private long ensurePlayerAndGetId(String playerName) {
+        jdbcTemplate.update("INSERT OR IGNORE INTO players (player_name) VALUES (?)", playerName);
+        Long id = jdbcTemplate.query(
+                "SELECT id FROM players WHERE player_name = ?",
+                rs -> rs.next() ? rs.getLong("id") : null,
+                playerName
+        );
+
+        if (id == null) {
+            throw new IllegalStateException("Unable to resolve player id");
+        }
+
+        return id;
+    }
+
+    private void savePlayerAnswer(long roundId, long playerId, List<String> moves, OutcomeStatus status, String message) {
+        String answerJson;
+        try {
+            answerJson = objectMapper.writeValueAsString(Map.of(
+                    "moves", moves,
+                    "moveCount", moves.size(),
+                    "status", status.name(),
+                    "message", message
+            ));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize player answer", ex);
+        }
+
+        jdbcTemplate.update(
+                "INSERT INTO player_answers (game_round_id, player_id, answer_json, is_correct) VALUES (?, ?, ?, ?)",
+                roundId,
+                playerId,
+                answerJson,
+                status == OutcomeStatus.WIN ? 1 : 0
+        );
     }
 
     private OutcomeStatus applyOverride(OutcomeStatus current, String overrideRaw) {
@@ -318,7 +460,18 @@ public class KnightGameService {
         return row + "," + col;
     }
 
+    private double toExecutionTimeMs(long elapsedNanos) {
+        // The start flow is very fast; keep a small non-zero floor so stored metrics are visible.
+        return Math.max(0.1d, elapsedNanos / 1_000_000.0d);
+    }
+
     private record EvaluationResult(OutcomeStatus status) {
+    }
+
+    private record RoundContext(int boardSize, String startPosition) {
+    }
+
+    private record AnswerRow(String playerName, String answerJson, boolean correct) {
     }
 
     private static final class Stats {

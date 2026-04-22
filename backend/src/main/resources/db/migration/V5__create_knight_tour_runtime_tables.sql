@@ -1,3 +1,11 @@
+CREATE TABLE IF NOT EXISTS knight_tour_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_size INTEGER NOT NULL,
+    start_position VARCHAR(20) NOT NULL,
+    algorithm_type VARCHAR(50) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS knight_game_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id INTEGER NOT NULL,
