@@ -96,4 +96,33 @@ describe('SixteenQueensPage UI', () => {
       expect(screen.getByText(/already discovered/i)).toBeInTheDocument();
     });
   });
+
+  it('clears the board and player form after a unique accepted solution', async () => {
+    renderPage();
+
+    const validBoard = Array.from({ length: 16 }, (_, index) => index);
+    await act(async () => {
+      useQueensGameStore.setState({
+        board: validBoard,
+        analysis: {
+          queensPlaced: 16,
+          isComplete: true,
+          isValid: true,
+          conflictingCells: new Set(),
+          conflictRows: new Set(),
+          conflictColumns: new Set(),
+          conflictDiagonals: new Set(),
+          conflictAntiDiagonals: new Set()
+        }
+      });
+    });
+
+    fireEvent.change(screen.getByLabelText(/Player name/i), { target: { value: 'Ari' } });
+    fireEvent.click(screen.getByRole('button', { name: /Submit arrangement/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Player name/i)).toHaveValue('');
+      expect(screen.getByLabelText(/Board signature/i)).toHaveValue('Incomplete board');
+    });
+  });
 });
