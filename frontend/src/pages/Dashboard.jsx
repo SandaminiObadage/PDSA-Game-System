@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GAMES = [
@@ -17,14 +18,14 @@ const GAMES = [
   },
   {
     id: 'minimum-cost',
-    name: 'Minimum Cost Path',
-    description: 'Find the path from top-left to bottom-right with minimum cost using dynamic programming.',
+    name: 'Minimum Cost',
+    description: 'Assign N tasks to N employees to minimize total assignment cost using algorithmic strategies.',
     icon: '💰',
     color: '#ec4899'
   },
   {
     id: 'snake-ladder',
-    name: 'Snake & Ladder',
+    name: 'Snake and Ladder Game Problem',
     description: 'Race to the finish! Navigate the board avoiding snakes and climbing ladders.',
     icon: '🎲',
     color: '#f59e0b'
@@ -40,9 +41,32 @@ const GAMES = [
 
 function Dashboard() {
   const navigate = useNavigate();
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [playerName, setPlayerName] = useState('');
 
   const handleGameClick = (gameId) => {
-    navigate(`/games/${gameId}`);
+    if (gameId === 'snake-ladder') {
+      setSelectedGame(gameId);
+      setShowNameDialog(true);
+    } else {
+      navigate(`/games/${gameId}`);
+    }
+  };
+
+  const handleStartGame = () => {
+    if (playerName.trim()) {
+      setShowNameDialog(false);
+      navigate(`/games/${selectedGame}?player=${encodeURIComponent(playerName.trim())}`);
+      setPlayerName('');
+      setSelectedGame(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setShowNameDialog(false);
+    setPlayerName('');
+    setSelectedGame(null);
   };
 
   return (
@@ -76,6 +100,37 @@ function Dashboard() {
           </button>
         ))}
       </section>
+
+      {/* Name Input Dialog */}
+      {showNameDialog && (
+        <div className="modal-overlay" onClick={handleCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Enter Your Name</h3>
+            <p>Please enter your name to start playing Snake & Ladder:</p>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Your name"
+              className="name-input"
+              onKeyPress={(e) => e.key === 'Enter' && handleStartGame()}
+              autoFocus
+            />
+            <div className="modal-buttons">
+              <button onClick={handleCancel} className="cancel-button">
+                Cancel
+              </button>
+              <button
+                onClick={handleStartGame}
+                className="start-button"
+                disabled={!playerName.trim()}
+              >
+                Start Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

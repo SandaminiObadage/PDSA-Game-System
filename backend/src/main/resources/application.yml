@@ -10,5 +10,8 @@ spring:
       schema-locations:
         - classpath:db/migration/V1__init_sqlite_schema.sql
         - classpath:db/migration/V3__add_algorithm_solution_answers.sql
+        - classpath:db/migration/V4__add_minimum_cost_game_results.sql
+        - classpath:db/migration/V4__create_knight_tour_tables.sql
+        - classpath:db/migration/V4__initialize_traffic_simulation_game.sql
 server:
   port: 8080
